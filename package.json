@@ -1,0 +1,46 @@
+{
+  "name": "term-at-target-macos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A dependency-free JXA Shortcuts action that opens Terminal at a deliberate filesystem location",
+  "license": "MIT",
+  "author": "Ervins Strauhmanis",
+  "homepage": "https://github.com/resoltico/TermAtTarget",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/resoltico/TermAtTarget.git"
+  },
+  "engines": {
+    "node": ">=26.8.1"
+  },
+  "imports": {
+    "#config": "./config.json",
+    "#metadata": "./tools/metadata.cjs"
+  },
+  "termAtTarget": {
+    "title": "Term At Target",
+    "minimumMacOS": "12.3",
+    "runtimeLanguage": "ES2022"
+  },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "lint": "node tools/lint.mjs",
+    "lint:js": "eslint .",
+    "test": "node --test \"tests/unit/**/*.test.cjs\" \"tests/repo/**/*.test.cjs\"",
+    "test:unit": "node --test \"tests/unit/**/*.test.cjs\"",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"tests/**\" --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"tests/unit/**/*.test.cjs\" \"tests/repo/**/*.test.cjs\"",
+    "test:mutation": "stryker run",
+    "check-dist": "node tools/check-dist.mjs",
+    "quality": "npm run lint && npm run lint:js && npm run test:coverage && npm run test:mutation && npm run check-dist",
+    "test:integration:macos": "node tests/integration/macos.mjs",
+    "package": "node tools/package.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/tap-runner": "10.0.0",
+    "acorn": "8.18.0",
+    "eslint": "10.10.0",
+    "fast-check": "4.10.1"
+  }
+}

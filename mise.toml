@@ -1,0 +1,12 @@
+# The Node version, as .node-version states it; the gate checks they agree.
+[tools]
+node = "26.8.1"
+
+[tasks.build]
+run = "npm run build"
+
+[tasks.quality]
+run = "npm run quality"
+
+[tasks.package]
+run = "npm run package"

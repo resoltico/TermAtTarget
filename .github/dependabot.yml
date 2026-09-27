@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # The workflows pin actions to commit SHAs, which is the right thing to do
+  # but means nothing updates them on its own. Dependabot rewrites the pin and
+  # its version comment together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+
+  # The artifact has no runtime dependencies -- it is one file that runs only
+  # what macOS ships -- so everything here is a build or gate tool: eslint,
+  # stryker, fast-check and acorn. Each is pinned exactly, and a change to any
+  # of them changes what the gate accepts, which is worth a pull request rather
+  # than a surprise.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: deps
+    labels:
+      - dependencies

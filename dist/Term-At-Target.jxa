@@ -1,0 +1,1762 @@
+/*
+Term At Target 1.0.0
+Generated from src/. Edit config.json and rebuild for source-controlled changes.
+For a personal pasted copy only, edit TERM_AT_TARGET_CONFIG below.
+Native macOS verification status is recorded in QA.md. No Node runtime required.
+
+MIT License
+
+Copyright (c) 2026 Ervins Strauhmanis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+var TERM_AT_TARGET_CONFIG = {
+    "defaultFolderAction": "ASK",
+    "defaultLinkAction": "ASK"
+};
+
+var __TermAtTarget = (function () {
+    "use strict";
+    var factories = {
+"src/core/config.js": function (require, module, exports) {
+"use strict";
+
+const FOLDER_ACTIONS = Object.freeze(["ASK", "INSIDE", "LEVEL"]);
+const LINK_ACTIONS = Object.freeze(["ASK", "TARGET", "LINK"]);
+
+function validateConfig(config) {
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+        throw new Error("Configuration must be an object.");
+    }
+    const keys = Object.keys(config).sort();
+    if (keys.join(",") !== "defaultFolderAction,defaultLinkAction") {
+        throw new Error("Configuration must contain only defaultFolderAction and defaultLinkAction.");
+    }
+    if (!FOLDER_ACTIONS.includes(config.defaultFolderAction)) {
+        throw new Error("defaultFolderAction must be ASK, INSIDE, or LEVEL.");
+    }
+    if (!LINK_ACTIONS.includes(config.defaultLinkAction)) {
+        throw new Error("defaultLinkAction must be ASK, TARGET, or LINK.");
+    }
+    return Object.freeze({
+        defaultFolderAction: config.defaultFolderAction,
+        defaultLinkAction: config.defaultLinkAction
+    });
+}
+
+module.exports = { validateConfig };
+
+},
+
+"src/core/errors.js": function (require, module, exports) {
+"use strict";
+
+// The number JXA gives a run the person cancelled: userCanceledErr.
+const USER_CANCELLED = -128;
+
+function cancelled() {
+    const error = new Error("Cancelled.");
+    error.errorNumber = USER_CANCELLED;
+    return error;
+}
+
+function isCancellation(error) {
+    // JXA reports a cancelled dialog through errorNumber; a `number` or a
+    // `code` property is something else, and is not a cancellation.
+    return Boolean(error && error.errorNumber === USER_CANCELLED);
+}
+
+function messageOf(error) {
+    if (error && typeof error.message === "string") {
+        return error.message;
+    }
+    return String(error);
+}
+
+module.exports = { cancelled, isCancellation, messageOf };
+
+},
+
+"src/core/paths.js": function (require, module, exports) {
+"use strict";
+
+/*
+ * A path is text the filesystem can hold, and an unpaired UTF-16 surrogate is
+ * not text. Iterating a string yields a well-formed pair as one character of
+ * length two, so a character of length one in the surrogate range is a
+ * surrogate with no partner.
+ */
+const SURROGATE_FIRST = 0xD800;
+const SURROGATE_LAST = 0xDFFF;
+
+function isLoneSurrogate(character) {
+    const unit = character.charCodeAt(0);
+
+    return character.length === 1 && unit >= SURROGATE_FIRST && unit <= SURROGATE_LAST;
+}
+
+function validUnicode(text) {
+    for (const character of text) {
+        if (isLoneSurrogate(character)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function checkPathText(text) {
+    if (typeof text !== "string" || text.length === 0 || text.includes("\0") || !validUnicode(text)) {
+        throw new Error("A path must be nonempty Unicode text without a NUL character.");
+    }
+    return text;
+}
+
+function decodeFileURL(text) {
+    const match = /^file:\/\/(?<host>[^/]*)(?<path>\/[^?#]*)$/iu.exec(text);
+    if (!match || (match.groups.host !== "" && match.groups.host.toLowerCase() !== "localhost")) {
+        throw new Error("Use a local file URL without a remote host, query, or fragment.");
+    }
+    // Encoded '/' is not a filename character on POSIX. Reject it rather than
+    // turning an encoded filename component into a different directory tree.
+    if (/%2f/iu.test(match.groups.path)) {
+        throw new Error("A file URL must not contain an encoded path separator.");
+    }
+    try {
+        return decodeURIComponent(match.groups.path);
+    } catch (error) {
+        throw new Error("The file URL contains invalid percent-encoding or UTF-8.", { cause: error });
+    }
+}
+
+// A file URL decoded once, or a path as given. Decoding is not repeated: a
+// name that contains "%41" is a name that contains "%41".
+function pathText(text) {
+    checkPathText(text);
+    return /^file:/iu.test(text) ? checkPathText(decodeFileURL(text)) : text;
+}
+
+function absolutePath(given) {
+    const text = pathText(given);
+    if (!text.startsWith("/")) {
+        throw new Error("Use an absolute POSIX path or a local file URL; relative paths and ~ are not expanded.");
+    }
+    const components = text.split("/").filter(component => component !== "");
+    if (components.some(component => component === "." || component === "..")) {
+        throw new Error("Direct input must not contain . or .. path components. Select the item itself.");
+    }
+    return `/${components.join("/")}`;
+}
+
+function parentPath(path) {
+    const normalized = absolutePath(path);
+    const lastSlash = normalized.lastIndexOf("/");
+    return lastSlash <= 0 ? "/" : normalized.slice(0, lastSlash);
+}
+
+function displayPath(path) {
+    return JSON.stringify(path);
+}
+
+/*
+ * What was selected: its path, and whether the text ended in "/". A slash
+ * means the name cannot be a file (POSIX), which the planner holds it to once
+ * it knows what the item is. It cannot mean "must be a folder": Foundation
+ * spells a URL for a symbolic link to a folder with one too.
+ */
+function selectedPath(input, pathOf) {
+    if (input === null || input === undefined) {
+        return null;
+    }
+    const items = Array.isArray(input) ? input : [input];
+    if (items.length === 0) {
+        return null;
+    }
+    if (items.length !== 1) {
+        throw new Error("Term At Target opens one selected item at a time. Select one file or folder and run it again.");
+    }
+    const text = pathText(pathOf(items[0]));
+    const path = absolutePath(text);
+    return { path, slashed: path !== "/" && text.endsWith("/") };
+}
+
+module.exports = {
+    validUnicode, checkPathText, decodeFileURL, absolutePath,
+    parentPath, displayPath, selectedPath
+};
+
+},
+
+"src/core/invocation.js": function (require, module, exports) {
+"use strict";
+
+/*
+ * What run() was handed, as the items that were selected.
+ *
+ * Shortcuts' Run JavaScript for Mac Automation does not pass its input as the
+ * first argument. It passes both of its own arguments inside it:
+ *
+ *     run([[item, ...], { source, "temporary items path", ignoresInput }], {})
+ *
+ * Measured on macOS 27 for a file, a folder, a Finder alias, two files and an
+ * empty selection, fed from Get Selected Files in Finder and from the
+ * shortcut's own input: the same shape every time, `source` a string and
+ * `ignoresInput` a boolean. Read as the selection itself, one file was two
+ * items and every run was refused.
+ *
+ * A list inside a list is recognised as that envelope and nothing else: the
+ * selection osascript passes is flat, so a nested list has no other meaning.
+ * An envelope that is not exactly the measured shape is refused by name,
+ * rather than read some other way and refused as a multiple selection.
+ * ignoresInput is checked, not acted on: the items are what the action was
+ * given, whatever the flag says.
+ */
+
+const ENVELOPE_LENGTH = 2;
+
+function isActionOptions(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value) &&
+        typeof value.source === "string" && typeof value.ignoresInput === "boolean";
+}
+
+function selectionOf(input) {
+    if (!Array.isArray(input) || !Array.isArray(input[0])) {
+        return input;
+    }
+
+    if (input.length !== ENVELOPE_LENGTH || !isActionOptions(input[1])) {
+        throw new Error("Shortcuts passed its input in a form this version does not recognise.");
+    }
+
+    return input[0];
+}
+
+module.exports = { selectionOf };
+
+},
+
+"src/core/unicode-tables.js": function (require, module, exports) {
+"use strict";
+
+/*
+ * Generated by tools/unicode/generate.mjs from the Unicode 17.0.0 data
+ * files in tools/unicode/data/. Do not edit; regenerate. Each value is a set
+ * of code points, encoded as src/core/unicode-sets.js decodes it.
+ *
+ * These tables are derived from Unicode data files, under this notice:
+ *
+ * UNICODE LICENSE V3
+ *
+ * COPYRIGHT AND PERMISSION NOTICE
+ *
+ * Copyright © 1991-2026 Unicode, Inc.
+ *
+ * NOTICE TO USER: Carefully read the following legal agreement. BY
+ * DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+ * SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+ * TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+ * DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of data files and any associated documentation (the "Data Files") or
+ * software and any associated documentation (the "Software") to deal in the
+ * Data Files or Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, and/or sell
+ * copies of the Data Files or Software, and to permit persons to whom the
+ * Data Files or Software are furnished to do so, provided that either (a)
+ * this copyright and permission notice appear with all copies of the Data
+ * Files or Software, or (b) this copyright and permission notice appear in
+ * associated Documentation.
+ *
+ * THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+ * KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+ * THIRD PARTY RIGHTS.
+ *
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+ * BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+ * OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+ * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+ * FILES OR SOFTWARE.
+ *
+ * Except as contained in this notice, the name of a copyright holder shall
+ * not be used in advertising or otherwise to promote the sale, use or other
+ * dealings in these Data Files or Software without prior written
+ * authorization of the copyright holder.
+ */
+
+module.exports = {
+    UNICODE_VERSION: "17.0.0",
+    JOINING_LEFT: [
+        "17k,5,1,1.4,4.c,1.6,1.1,z.1,8.f,i.11,1.1,9,1,1.1,14.2,2,i.2,5.3,1.8,1,1,1.1,v.a,3.e,2.3,1,2.2,2.5,22.w,2e.4,2,1.9,1,a,1.3,2,t,2.4,1,g.9,5.1,2.5,1.e,30e,o.2g,e.x,1,sd1.1e,jf1.4,8,5.",
+        "9,1.2,a.3,41,1,3.2,1.1,1,2,s.1,9d.x,1,bj.1,1.1,2w.2,1.g,c.2,s.3,2.b,1a,1.1,4,2.1,1.1,1,2,5.1,16wk.1v"
+    ].join(""),
+    JOINING_RIGHT: [
+        "17k,1.t,1.9,z.1,1.2,1.2m,1,o.1,a.2,2,g,1.t,t.1e,22.w,2d.o,7,1.3,1.3,5.i,3,2.6,g.c,1.q,30e,o.2g,e.x,1,sd1.1d,jf2.5,1,1.1,3.8,1.9,2,6.4,40.h,n.5,9e.y,bi.2,1.1,2w.k,c.3,r.h,1a,1.4,1.7",
+        ",1.3,4.1,16wl.1v"
+    ].join(""),
+    TRANSPARENT: [
+        "4t,gi.33,7n.6,7b.18,1,1.1,1.1,1,20.a,1,1a.k,g,2t.6,2.5,2.1,1.3,x,1,u.q,2j.a,1m.8,9,o.3,1.8,1.2,1.4,17.2,1n.8,16.n,1.v,1j,1,4.7,4,3.6,a.1,t,1m,4.3,8,k.1,q,2.1,1l,4.1,4.1,2.2,3,u.1,3",
+        ",b.1,1l,4.4,1.1,4,k.1,m.5,1,1m,2,1.3,8,7.1,b.1,u,1p,c,1e,3,1j,1.2,5.2,1.3,7.1,b.1,t,1m,2,6,5.1,k.1,s.1,1l.1,4.3,8,k.1,t,20,7.2,1,2i,2.6,c.7,2q,2.8,b.6,21.1,r,1,1,1j.d,1.4,1.1,5.a,1",
+        ".z,9,2u.3,1.5,1.1,2.1,p.1,4.2,g.3,d,2.1,6,f,jj.2,qa.2,t.1,u.1,u.1,1s.1,1.6,8,2.a,9,19.2,1,39.1,y,3a.2,4.1,9,6.2,63.1,2,1m,1.6,1,1,2.7,6.9,2,1c.19,2.b,k.3,1c,1.4,1,5,14.8,c.1,w.3,2.",
+        "1,1.2,1k,1.1,3,1.2,1m.7,2.1,48.2,1.c,1.6,4,6,3.1,5i.1r,ej,2.1,q.4,1d.4,5.5,2o.w,2da.2,3x,2o.v,fe.3,2z.1,n9w.3,1.9,w.1,28.1,7k,3,4,p.1,5,47.1,q.h,d,12.7,p.a,1a.2,1c,2.3,2.1,13,1v.5,",
+        "2.1,2.1,c,8,1b,1f,1.2,2.1,5.1,1,16.1,8,6m,2,4,fn4,kh.f,g.f,5r,6x.2,e9,6a,45.4,1ae.2,1.1,5.3,14.2,4,4l.1,fx.3,1t.4,8t.1,25.5,1y.a,1d.3,3f,1i.e,15,2.1,a.2,1d.3,2.1,7,1p.2,10.4,1.7,1q",
+        ",c.1,1g.8,a.3,2,2n.2,2,1.1,6,2,4d,3.7,l.1,1l.1,3,11.6,3.4,1y.5,d,1,1,e.1,2d.7,2.2,1,n,2c.5,1,4.1,1.1,6m.3,6.1,1.1,r.1,2d.7,2,1.1,2y,1,2.5,1,2t,1,2.3,1.4,77.8,1.1,74.1,1,4,40.3,2.1,",
+        "4,w.9,14.5,2.3,8,9.5,2.2,1a.c,1.1,5i,1.2,1,5l.6,1.5,1,2a.l,2.6,1.1,1.1,3e.5,3,1.1,1.6,1,20.1,3,1,9n.1,b.1,1g.4,5,1,n,445.g,6.e,8ug.b,3.2,1xc.4,1n.6,t4,1r.3,29,f5k.1,1.3,3mk.19,2.m,",
+        "f4.2,9.f,2.6,u.3,44.2,1iz.1i,4.1d,8,e,m.4,1.e,11s.6,1.g,2.6,1.1,1.4,2s,4g.6,af,1p.3,e4.3,72.1,6r,2,7.1,5,d6.6,31.7,gzat,u.2n,3k.6n"
+    ].join(""),
+    VIRAMA: [
+        "1u5,3j,3j,3j,3j,3j,3j,3j,31.1,g,3g,33,3j,5l,50.1,1cp.1,u,4d,i5,6b,2t.1,1y.1,3gr,o7a,11,47,3y,30,8l,6u,imp,16u,15,e,1l,3d.1,3v,38,50,2q,3k.2,35,3j,70,3j,3a,38,7h,77.1,4h,2b,i,29,bp,",
+        "78.1,29,bt.1,d0s"
+    ].join(""),
+    // Bases each variation selector is defined after, keyed by the selector in hex.
+    SELECTORS: {
+        "180B": [
+            "4rk.6,1,1,1.1,2,1.1,1.1,1,b.5,3.1,e.1,1,2,4.1,5,3.1,1,9.1,5.1,1"
+        ].join(""),
+        "180C": [
+            "4rk,4.1,1,3.1,2,5,g,m,9,a.1,i"
+        ].join(""),
+        "180D": [
+            "4rs,3.1,1x.1,i"
+        ].join(""),
+        "FE00": [
+            "1c,34f,1,1,b.1,3,3.1,1.1,4,e,1v,2,1,5,32v.1,2.1,6l,4,1,8,g,3.1,1,5t,z.1,1p.1,8.1,m.1,7.2,1,4,1p.1,1cr,3o.1,2n.1,d.1,t.1,110.1,wr,q,1,z,1h,d4,d,3o,4t,1e,p,22,r,1k,t,6r,1p,3b,z,g,1b,",
+            "2b,3e,1h,6c,2q,7p,b,2q,68,b,f,w,c,27,24,23,5u,10,3c,2o,1e,10,3f,3,1d,2n,5b,1d,3,9,2z,x,1n,3s,8,jx,28,3r,7,1n,3k,4a,73,u,a,2l,52,o,b,5.1,3,3,1s,3,13,h,b,n,3f,v,5,4,y,c,3,1u,14,26,u,",
+            "1h,a,c,2g,4,7,6,f,2.2,3,9,8,c,4,2,1,c,7,8,1,h,2,f,1,m,d,3,f,h,g.1,a,17,4,h,h,7,f,j,1,8,b,5,g,4,a.1,g,13,9,7,8,o,1,7,1,1v,6,k,5,5,5,k,8,d,q,9,5,v,1h,3,q,1k,p,1u,1,d,w,2,h,3,d,7,c,1,",
+            "v,z,22,m,b,3o,s.1,37,1u,11,o,z.1,d,p,3,21,3,6,10,6,e,3,4,e,j,7,x,3,8,2,d,g,2s,j,1a,b,1m,3,26,2a,v,l,1y,1p,k,e,6,4,b,6,r,s,w,1,1.1,8,u,1e,2g,15,c,q,2,d,1h,7,12.1,q,16,k,17,a,1d,9,2,",
+            "2,i.1,7.1,5,i,h,5,t,1c,e,6,1,v,e,e,3,v,9,t,3,o,9,2g,b,i,1e,g,8,12,1n,3,3,1,h,7,h,j,1,j,a,2,17,j,3,9,f,a,i,5,14,2b,n,5,3.1,13,1,1q,i,n,i,7,s,8,q.1,u,1j,5,1b,m,d,6,r,2,12,3u,6,l,b,w,",
+            "17,s.1,1b,1h,16,j,8,a,n,h,19,3,7,m,3,5,18,4,2,7,s,9,h,2j,6,s,7,1e,1a,3,8,p,2z,19,2o,1y,n,g,44,16,7,14,s,1e,t,4,1,11,e,b.1,42,o,w,1i,c.1,n,1c,4,2,l,9,2,13.1,c.1,c,1x,e,f,e,w,k,1q,19",
+            ",t,c,3,5,9,1f,i.1,22,2f,10,i,s,2,q,g,11,6,5,r,j,q,g,2z,3,10,19,1d,1,1r,a,c,2,9,q,h,t,k,p,g,1n,19,22,4,c,3,p,c,17,13,2,o,10,k,c,7,j,3,e,1d,1n,t,m,2,q,b,a,35,19,c,1,y,12,2o,g,b,c,c,s",
+            ".1,w,9,1s,r,4m,s,w,4,1k,1,1a,1a,h,1,9.1,6,5,6.1,6,p,d.2,u,r,w,1c,z,9,4,1d,1b,p,y,1d,4f,5,2,38,x,q,m,17,j,3,c,3.1,n,f,h,c,17,7,1o,t,8,18,d,6,19,9,3,6w,1f,6.1,a,f,4,y,1o,6,3,1s,p,e.1",
+            ",d,c,x,4,28,1m,49,f,4,j,2,j,2e,9,h,5,b,j,1,9,13.1,1i,5,i,r.1,f,21,f,b.1,1,f,a,7,1,23,b,d,46,2,1,8,p,25,2w,18,b,b,q,h,g,b,a,1,u,w,1k,17,p,1u,d,c,1f,12,v,t,18,j,2,2m,c,7,6,2,m,1,l,1c",
+            ",y,x,4,a,7d,9,k,b,6,3,m,a,5,2,1j,u,13,9,59,c,2d,l.1,5,a,1g,i,2j,1w,e,z.1,61,9,29,3,d,2,12,1n,h,5,30,k,1l,9,i,4,1l,f,i,b,j,9,26,1a,q,n,2,1,2q,3,1p,5,2i.1,17,1x,4u,r,ad,x,9,3a,s,1,13",
+            ",2,3,9,s,j.1,a,u.1,i.1,17,e,l,d,3o,4,u,b,c,g,h,y,3n,c,c,17.1,3h,q,1a,c,2z,4n,2k,5s,m,4l,2x,24,1x,z,2o,n,7,r,i,16,4,6,9,6,10,7,21.1,d,1q1,5,1.2,7,dz.6,4.1,2,a,gp2,a,1,1,9.1,3,2at.1,",
+            "f.1,9,7fz,3h,c,4,5,h,2u,g,6.1,h,k,o.1,3k,3,5,6,t,w,g,a,v,j,6,p,1m.1,w.1,1k,g.1,1,6,3,2.1,v,2.1,8,v.3,1i9.2,p3,tgp,1.1,2,2.1,2.3,1.7,8rw,s9,8,11,6m,cp,61,99,8m,1vk,cj,1t,kd,9b,du,60",
+            ",1,po,r,b5,pu,a7,5,jl,6c,t4,j1,4m,1f,8,12,h,47,fp,eb,dh,30,ch,2p,c2,3w,1b,k4,3u,58,gs,8c,66,td,2j,lq,m,3v,4t.1,11,p,7p,cz,eg,37,16,ja,8a,77,5w,27,j9,gj,25,u,41,2s,bf,20,3o,e6,d,p2,",
+            "6x,4e,45,cg,3o,80,l3,ik,g6,53,n5,fe,2j,1b6,q,8w,y3,ak,r1,49,1m,dr,3v,7z,12x,13x,1i,7c,3m,74,h9"
+        ].join(""),
+        "FE01": [
+            "6c8.1,2.1,6l,4,1,8,g,3.1,1,2x9.1,2ai,m2,ao,31w,8o,2t,2v,29,5b,1,q,l,s,1l,19,ec,k,3,2w,gj,kj,4o,3q,gr,2f,a9,53,1,1r,2r,3,ns,84,s,3p,3,a1,ak,c7,au,1h,9f,2e,6z,9b,5i,6s,2k,6h,72,9l,15",
+            ",16,16,8x,1r,3t,1k,4w,an,fn,eo,e3,3b,2z,a9,ec,7w,f0,7n,1u,a,5,2,1j,28,al,fj,73,1be,36,4o,b,1b,k6,w9,iuc,a,1,b.1,3,9rn,4e,6,25,15,1o,9.2,2k,13,b,o,2r,9.2,6,5.1,e,52,1c,26d,no,svb,1.",
+            "1,2,2.1,2.3,1.7,fi3,ayd"
+        ].join(""),
+        "FE02": [
+            "6c8.1,2.1,a5d,1nr,146,2r,10k,kq,c7,au,3aq,eo,4qt,1hs,sqi,x,21,s,p,1f,13,2s,14,1u,1,e,4,4.1,c.4,7,4,f,o,m,h,9,7,15.1,e,r,1,1n,i,1,2th"
+        ].join(""),
+        "FE03": [
+            "1o2a,4l,1,2c,v,9,22,n.1,1,h,15,15,40,4h,68"
+        ].join(""),
+        "FE04": [
+            "1oah,k3"
+        ].join(""),
+        "FE05": [
+            "1oah,3ei"
+        ].join(""),
+        "FE06": [
+            "1oa7,9,22,2e,i,m,4e,1w,1t,c,1j.1,4n,2u2"
+        ].join(""),
+        "FE0E": [
+            "z,6,5.9,33,4,68d,c,60,m,2i.5,f.1,a7.1,c,4m,p.a,4.2,5j,6f.1,a,9,1m.3,1.4,9,2,2.1,2,4,2,1.1,2,3,3.1,8.2,5,1,5.b,b.1,2,1.1,1,i,2.1,i.5,1,1.1,3.1,5,2.1,4.1,b.1,5.1,2,5.1,1,1.1,k.1,5.5,",
+            "1.3,2,4,2,2.5,1,2,1,1,6,3,6,a.1,f,2,4,1,4.2,1,b.1,1c.2,9,e,e,ac.1,cv.2,j.1,1f,4,yi,c,gp,1,2fze,a3.1,c.1,3m,n,k,7,5x.2,5,6,4,2.8,9,1t,4,l,2.1,1.2,2.1,7,4.2,j,1,1,3.4,5.c,c,5,1,1,g,c",
+            ",9,6,o,1.1,3.3,3.1,4,m,i,11,c,2,7,3,b,e,4,4.2,3.3,9,1.2,1,a,4,4.1,1h.1,5.n,7.1,2.6,d,2.3,2,k,2,8.1,9,5.2,c.2,8.2,2,1,4,6,3,6,l,3a,5,3,2,3,k,4,6.1,1,e,1.2,g.5,3,6,2"
+        ].join(""),
+        "FE0F": [
+            "z,6,5.9,33,4,68d,c,60,m,2i.5,f.1,a7.1,c,4m,p.a,4.2,5j,6f.1,a,9,1m.3,1.4,9,2,2.1,2,4,2,1.1,2,3,3.1,8.2,5,1,5.b,b.1,2,1.1,1,i,2.1,i.5,1,1.1,3.1,5,2.1,4.1,b.1,5.1,2,5.1,1,1.1,k.1,5.5,",
+            "1.3,2,4,2,2.5,1,2,1,1,6,3,6,a.1,f,2,4,1,4.2,1,b.1,1c.2,9,e,e,ac.1,cv.2,j.1,1f,4,yi,c,gp,1,2fze,a3.1,c.1,3m,n,k,7,5x.2,5,6,4,2.8,9,1t,4,l,2.1,1.2,2.1,7,4.2,j,1,1,3.4,5.c,c,5,1,1,g,c",
+            ",9,6,o,1.1,3.3,3.1,4,m,i,11,c,2,7,3,b,e,4,4.2,3.3,9,1.2,1,a,4,4.1,1h.1,5.n,7.1,2.6,d,2.3,2,k,2,8.1,9,5.2,c.2,8.2,2,1,4,6,3,6,l,3a,5,3,2,3,k,4,6.1,1,e,1.2,g.5,3,6,2"
+        ].join("")
+    }
+};
+
+},
+
+"src/core/unicode-sets.js": function (require, module, exports) {
+"use strict";
+
+const tables = require("./unicode-tables.js");
+
+/*
+ * The Unicode tables, decoded once into sorted code point ranges and asked
+ * with a binary search. Each table is written as ranges: the gap since the end
+ * of the previous range and the range's length beyond one, in base 36, joined
+ * by commas (tools/unicode/ranges.mjs writes them; the two are tested against
+ * each other and against the source files).
+ */
+
+const BASE = 36;
+const HEX = 16;
+const HALVES = 2;
+
+function decode(encoded) {
+    let previous = -1;
+
+    return encoded === "" ? [] : encoded.split(",").map((token) => {
+        const [gap, extra = "0"] = token.split(".");
+        const first = previous + 1 + Number.parseInt(gap, BASE);
+
+        previous = first + Number.parseInt(extra, BASE);
+        return [first, previous];
+    });
+}
+
+function search(ranges, point) {
+    let low = 0;
+    let high = ranges.length - 1;
+
+    while (low <= high) {
+        const middle = Math.floor((low + high) / HALVES);
+        const [first, last] = ranges[middle];
+
+        if (point < first) {
+            high = middle - 1;
+        } else if (point > last) {
+            low = middle + 1;
+        } else {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Whether a code point is in the ranges. Anything that is not one -- a
+// position past either end of the text reads as undefined -- is in none.
+function contains(ranges, point) {
+    return Number.isInteger(point) && search(ranges, point);
+}
+
+const JOINING_LEFT = decode(tables.JOINING_LEFT);
+const JOINING_RIGHT = decode(tables.JOINING_RIGHT);
+const TRANSPARENT = decode(tables.TRANSPARENT);
+const VIRAMA = decode(tables.VIRAMA);
+const SELECTOR_BASES = new Map(Object.entries(tables.SELECTORS)
+    .map(([selector, bases]) => [Number.parseInt(selector, HEX), decode(bases)]));
+
+module.exports = {
+    decode,
+    contains,
+    joinsLeft: (point) => contains(JOINING_LEFT, point),
+    joinsRight: (point) => contains(JOINING_RIGHT, point),
+    isTransparent: (point) => contains(TRANSPARENT, point),
+    isVirama: (point) => contains(VIRAMA, point),
+    // Whether `base` followed by `selector` is a defined variation sequence.
+    isDefinedVariation: (base, selector) => contains(SELECTOR_BASES.get(selector) ?? [], base),
+    UNICODE_VERSION: tables.UNICODE_VERSION
+};
+
+},
+
+"src/core/writing.js": function (require, module, exports) {
+"use strict";
+
+const sets = require("./unicode-sets.js");
+
+/*
+ * Whether an invisible character is part of how visible text is written, by
+ * published standards only -- each exception below cites the one it follows.
+ * Anything not covered is shown escaped by src/core/present.js.
+ *
+ * - Emoji: the engine's own set of recommended emoji (\p{RGI_Emoji}, the
+ *   `v` flag), which knows a joined emoji from two emoji with a joiner
+ *   between them, and a valid flag's tags from any others. Built from a string
+ *   inside try/catch, so an engine without it still parses this file and
+ *   simply keeps no emoji exception: every invisible character is shown.
+ * - Variation selectors: a base and selector listed in the Unicode 17 emoji
+ *   variation sequences or standardized variants; or, after a Han ideograph,
+ *   an ideographic variation selector. The IVD registry is not embedded (it
+ *   is too large to paste), so an unregistered one there is the one unchecked
+ *   case.
+ * - Joiners: RFC 5892 Appendix A (CONTEXTJ, as IDNA uses it) -- a joiner or
+ *   non-joiner directly after a virama; or a non-joiner between a character
+ *   that joins to the left and one that joins to the right, with only
+ *   transparent characters (combining marks, mostly) in between.
+ */
+
+const RGI_EMOJI = String.raw`\p{RGI_Emoji}`;
+const ZWNJ = 0x200C;
+const ZWJ = 0x200D;
+// The ideographic variation selectors are every variation selector from here on.
+const IVS_FIRST = 0xE0100;
+const HAN = /\p{Script=Han}/u;
+const SELECTOR = /\p{Variation_Selector}/u;
+
+// The engine's recommended-emoji pattern, or null where the engine has none.
+function emojiMatcher(Pattern = RegExp) {
+    try {
+        return new Pattern(RGI_EMOJI, "gv");
+    } catch {
+        return null;
+    }
+}
+
+// Positions (in code points) inside a recommended emoji, found by `matcher`.
+function emojiPositions(characters, matcher) {
+    const kept = new Set();
+
+    if (matcher === null) {
+        return kept;
+    }
+
+    const text = characters.join("");
+
+    for (const match of text.matchAll(matcher)) {
+        const start = [...text.slice(0, match.index)].length;
+
+        [...match[0]].forEach((unused, offset) => kept.add(start + offset));
+    }
+
+    return kept;
+}
+
+// The nearest code point from `index` in `step` direction that is not
+// transparent, or undefined past either end of the text.
+function beyondTransparent(points, index, step) {
+    let at = index + step;
+
+    while (sets.isTransparent(points[at])) {
+        at += step;
+    }
+
+    return points[at];
+}
+
+function joinerAllowed(points, index) {
+    if (sets.isVirama(points[index - 1])) {
+        return true;
+    }
+
+    if (points[index] !== ZWNJ) {
+        return false;
+    }
+
+    const left = beyondTransparent(points, index, -1);
+    const right = beyondTransparent(points, index, 1);
+
+    return sets.joinsLeft(left) && sets.joinsRight(right);
+}
+
+// Whether a code point is a Han ideograph; nothing past the text's start is.
+function isHan(point) {
+    return Number.isInteger(point) && HAN.test(String.fromCodePoint(point));
+}
+
+// The base is undefined for a selector at the very start, and defines nothing.
+function selectorAllowed(points, index) {
+    const [base, selector] = [points[index - 1], points[index]];
+
+    return selector >= IVS_FIRST ? isHan(base) : sets.isDefinedVariation(base, selector);
+}
+
+function isWriting(points, index) {
+    const point = points[index];
+
+    if (point === ZWJ || point === ZWNJ) {
+        return joinerAllowed(points, index);
+    }
+
+    return SELECTOR.test(String.fromCodePoint(point)) && selectorAllowed(points, index);
+}
+
+module.exports = { emojiMatcher, emojiPositions, isWriting };
+
+},
+
+"src/core/present.js": function (require, module, exports) {
+"use strict";
+
+const { parentPath } = require("./paths.js");
+const { emojiMatcher, emojiPositions, isWriting } = require("./writing.js");
+
+/*
+ * How a name or a path is shown to a person in a question.
+ *
+ * An ordinary name is shown as it is. A name holding anything invisible, or
+ * anything that moves the text around it, is shown quoted, with each such
+ * character written as \u{XXXX} and `"` and `\` escaped. What counts is
+ * decided by Unicode's own properties, not a list: control characters, line
+ * and paragraph separators, whitespace other than a plain space, and every
+ * default-ignorable code point -- soft hyphens, zero-width and direction
+ * marks, fillers, stray tags and selectors.
+ *
+ * Some of those characters are how visible text is written -- a joined emoji,
+ * a defined variation sequence, a joiner where a script's shaping calls for
+ * one -- and are kept; src/core/writing.js decides which, by published
+ * standards. Anywhere else the same characters are escaped.
+ *
+ * A space at either end of a component, and a leading `"`, also force the
+ * quoted form. Plain text never begins with `"`, so the two forms never meet,
+ * and no two different names are shown as the same text. (Characters that
+ * merely look alike are a different matter, and the path itself is what is
+ * opened.) This is presentation only: nothing shown is ever read back.
+ */
+
+const HEX = 16;
+const CODE_DIGITS = 4;
+const QUOTE = "\"";
+const BACKSLASH = "\\";
+const SPACE = " ";
+
+const INVISIBLE = /[\p{Cc}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]|[^\S ]/u;
+const EMOJI = emojiMatcher();
+
+// For each code point, whether it must be escaped to be seen.
+function hiddenMarks(text) {
+    const characters = [...text];
+    const points = characters.map((character) => character.codePointAt(0));
+    const kept = emojiPositions(characters, EMOJI);
+
+    return characters.map((character, index) =>
+        !kept.has(index) && INVISIBLE.test(character) && !isWriting(points, index));
+}
+
+function hasEdgeSpace(component) {
+    return component.startsWith(SPACE) || component.endsWith(SPACE);
+}
+
+function escaped(character, hidden) {
+    if (character === QUOTE || character === BACKSLASH) {
+        return `${BACKSLASH}${character}`;
+    }
+
+    return hidden
+        ? `\\u{${character.codePointAt(0).toString(HEX).toUpperCase().padStart(CODE_DIGITS, "0")}}`
+        : character;
+}
+
+function present(text, components) {
+    const hidden = hiddenMarks(text);
+
+    if (!text.startsWith(QUOTE) && !hidden.includes(true) && !components.some(hasEdgeSpace)) {
+        return text;
+    }
+
+    return `${QUOTE}${[...text].map((character, index) => escaped(character, hidden[index])).join("")}${QUOTE}`;
+}
+
+function presentName(name) {
+    return present(name, [name]);
+}
+
+function presentPath(path) {
+    return present(path, path.split("/"));
+}
+
+// A folder's name and the folder it is in, each ready to show.
+function presentLocation(path) {
+    return { name: presentName(path.slice(path.lastIndexOf("/") + 1)), parent: presentPath(parentPath(path)) };
+}
+
+module.exports = { presentName, presentPath, presentLocation };
+
+},
+
+"src/core/resolve.js": function (require, module, exports) {
+"use strict";
+
+const { checkPathText, absolutePath, parentPath, displayPath } = require("./paths.js");
+
+// The most links one resolution may follow before it is taken for a cycle.
+const MAX_LINKS = 40;
+
+// One link followed, against the budget the whole resolution shares.
+function spendLink(budget, message) {
+    budget.links += 1;
+
+    if (budget.links > MAX_LINKS) {
+        throw new Error(message);
+    }
+}
+
+/*
+ * A symbolic link met partway through a path. Its target replaces it in what
+ * is still to be walked; an absolute target starts the walk again from root.
+ * The budget is spent before the link is read, so a cycle is refused before
+ * it is followed once more.
+ */
+function followLinkComponent(state, candidate, io, budget) {
+    spendLink(budget, `Too many symbolic links, or a link cycle, while resolving ${displayPath(state.rawPath)}.`);
+
+    const target = checkPathText(io.readLink(candidate));
+
+    if (target.startsWith("/")) {
+        state.resolved.length = 0;
+    }
+
+    state.pending = target.split("/").concat(state.pending);
+}
+
+function enterComponent(state, part, io, budget) {
+    const candidate = `/${[...state.resolved, part].join("/")}`;
+    const facts = io.inspect(candidate);
+
+    if (facts.kind === "symlink") {
+        followLinkComponent(state, candidate, io, budget);
+        return;
+    }
+
+    // Any remaining component (even '.' or '..') requires a directory.
+    if (state.pending.length > 0 && facts.kind !== "directory") {
+        throw new Error(`A link target traverses a non-directory: ${displayPath(candidate)}.`);
+    }
+
+    state.resolved.push(part);
+}
+
+function stepThrough(state, part, io, budget) {
+    if (part === "" || part === ".") {
+        return;
+    }
+
+    if (part === "..") {
+        state.resolved.pop();
+        return;
+    }
+
+    enterComponent(state, part, io, budget);
+}
+
+/*
+ * Follow filesystem components in order, not a lexical realpath substitute.
+ * In particular /a/link/../b must visit link before interpreting '..'.
+ * Alias files are not traversable directory components on a POSIX filesystem.
+ */
+function physicalPath(rawPath, io, budget) {
+    checkPathText(rawPath);
+
+    if (!rawPath.startsWith("/")) {
+        throw new Error("Internal link resolution requires an absolute path.");
+    }
+
+    const state = { rawPath, pending: rawPath.split("/"), resolved: [] };
+
+    while (state.pending.length > 0) {
+        stepThrough(state, state.pending.shift(), io, budget);
+    }
+
+    return `/${state.resolved.join("/")}`;
+}
+
+/*
+ * Where an alias or a link points, one hop at a time, or null when the path is
+ * neither. A symbolic link is read before the budget is spent, so a link that
+ * cannot be read says so rather than being counted against the cycle limit.
+ */
+function nextHop(path, facts, walk) {
+    if (facts.kind === "alias") {
+        spendLink(walk.budget, `Too many aliases while resolving ${displayPath(walk.selected)}.`);
+        return absolutePath(walk.io.resolveAlias(path));
+    }
+
+    if (facts.kind === "symlink") {
+        const target = checkPathText(walk.io.readLink(path));
+
+        spendLink(walk.budget, `Too many links while resolving ${displayPath(walk.selected)}.`);
+
+        return physicalPath(target.startsWith("/") ? target : `${parentPath(path)}/${target}`, walk.io, walk.budget);
+    }
+
+    return null;
+}
+
+function visit(visited, path) {
+    if (visited.has(path)) {
+        throw new Error(`A link cycle was found at ${displayPath(path)}.`);
+    }
+
+    visited.add(path);
+}
+
+function resolveTarget(selected, io) {
+    const visited = new Set();
+    const walk = { selected, io, budget: { links: 0 } };
+    let path = selected;
+
+    for (;;) {
+        visit(visited, path);
+
+        const facts = io.inspect(path);
+        const next = nextHop(path, facts, walk);
+
+        if (next === null) {
+            return { path, facts };
+        }
+
+        path = next;
+    }
+}
+
+module.exports = { physicalPath, resolveTarget, MAX_LINKS };
+
+},
+
+"src/core/plan.js": function (require, module, exports) {
+"use strict";
+
+const { absolutePath, parentPath, displayPath } = require("./paths.js");
+const { physicalPath, resolveTarget } = require("./resolve.js");
+
+/*
+ * Where Terminal opens, decided from what was selected.
+ *
+ * An ordinary file opens its parent. A folder opens inside or at its parent. An
+ * alias or a symbolic link either opens where it itself sits, or has the same
+ * rules applied to what it points at.
+ */
+
+const ROOT = "/";
+
+// Whether to follow a link to its target or stay where the link sits.
+function linkChoice(path, kind, config, io) {
+    const choice = config.defaultLinkAction === "ASK"
+        ? io.chooseLink(path, kind)
+        : config.defaultLinkAction;
+
+    if (choice !== "LINK" && choice !== "TARGET") {
+        throw new Error("Invalid link-location choice.");
+    }
+
+    return choice;
+}
+
+/*
+ * Inside the folder, or at its parent. Where the two are the same place -- the
+ * root -- there is nothing to ask. `via` is the kind of link the folder was
+ * reached through, or null, so a question can say which folder it is about.
+ */
+function folderDestination(path, via, config, io) {
+    if (path === ROOT) {
+        return ROOT;
+    }
+
+    const choice = config.defaultFolderAction === "ASK"
+        ? io.chooseFolderMode(path, via)
+        : config.defaultFolderAction;
+
+    if (choice === "INSIDE") {
+        return path;
+    }
+
+    if (choice === "LEVEL") {
+        return parentPath(path);
+    }
+
+    throw new Error("Invalid folder-location choice.");
+}
+
+// A path ending in "/" cannot name a file, and a Finder alias is a file.
+function assertSlashFits(selection, facts) {
+    if (selection.slashed && (facts.kind === "file" || facts.kind === "alias")) {
+        throw new Error(`${displayPath(`${selection.path}/`)} ends in "/", but it names a file, not a folder.`);
+    }
+}
+
+/*
+ * A slash after a symbolic link asks the filesystem's question: does this name
+ * a directory? So it is answered the filesystem's way -- symbolic links
+ * followed in order, then the item at the end must be a folder -- before
+ * anything is asked. A Finder alias on the way is a file, as it is to the
+ * filesystem, so it is refused, just as a slashed alias selected directly is.
+ * Without a slash a link is never followed unless the person chooses to follow
+ * it, so a link whose target is gone still opens its own folder.
+ */
+function slashedTarget(selection, io) {
+    const path = physicalPath(selection.path, io, { links: 0 });
+    const facts = io.inspect(path);
+
+    if (facts.kind !== "directory") {
+        throw new Error(`${displayPath(`${selection.path}/`)} ends in "/", but it leads to a file, not a folder.`);
+    }
+
+    return { path, facts };
+}
+
+/*
+ * What the selection stands for: the item itself, or -- for an alias or a
+ * link the person chose to follow -- what it points at. Null when the answer
+ * is the link's own location, which needs no more inspection.
+ */
+function standIn(selection, config, io) {
+    const facts = io.inspect(selection.path);
+
+    assertSlashFits(selection, facts);
+
+    if (facts.kind !== "alias" && facts.kind !== "symlink") {
+        return { path: selection.path, facts, via: null };
+    }
+
+    const checked = selection.slashed ? slashedTarget(selection, io) : null;
+
+    if (linkChoice(selection.path, facts.kind, config, io) === "LINK") {
+        return null;
+    }
+
+    return { ...checked ?? resolveTarget(selection.path, io), via: facts.kind };
+}
+
+function destination(selection, config, io) {
+    if (selection === null) {
+        // Choosing a destination is already an explicit INSIDE operation.
+        return absolutePath(io.pathOf(io.chooseFolder()));
+    }
+
+    const item = standIn(selection, config, io);
+
+    if (item === null) {
+        return parentPath(selection.path);
+    }
+
+    if (item.facts.kind === "directory") {
+        return folderDestination(item.path, item.via, config, io);
+    }
+
+    if (item.facts.kind !== "file") {
+        throw new Error("The selected item's type could not be determined.");
+    }
+
+    return parentPath(item.path);
+}
+
+module.exports = { destination };
+
+},
+
+"src/core/workflow.js": function (require, module, exports) {
+"use strict";
+
+const { validateConfig } = require("./config.js");
+const { selectedPath } = require("./paths.js");
+const { selectionOf } = require("./invocation.js");
+const { isCancellation } = require("./errors.js");
+const { destination } = require("./plan.js");
+
+/*
+ * One run: read what was selected, decide where Terminal opens, check it is
+ * still a folder that can be entered, and ask Terminal to open there.
+ *
+ * Runs are independent. Nothing is shared between them -- no file is written
+ * and no state is kept -- so there is nothing for one run to wait on or guard
+ * against another. A cancelled question ends the run quietly; anything else
+ * thrown is thrown on as itself, even a value that is falsy.
+ */
+function execute(input, rawConfig, host) {
+    const config = validateConfig(rawConfig);
+    const selection = selectedPath(selectionOf(input), (value) => host.pathOf(value));
+
+    try {
+        const path = destination(selection, config, host);
+
+        host.validateDirectory(path);
+        host.launch(path);
+    } catch (error) {
+        if (isCancellation(error)) {
+            return [];
+        }
+
+        throw error;
+    }
+
+    return [];
+}
+
+module.exports = { execute };
+
+},
+
+"src/runtime/executables.js": function (require, module, exports) {
+"use strict";
+
+/*
+ * Everything outside this script the action runs or asks for, and nothing
+ * else.
+ *
+ * The action's whole external surface is this file: tools/lint refuses an
+ * absolute executable path named anywhere else under src/. The program ships
+ * with macOS, so nothing here is installed, downloaded or looked up on PATH.
+ */
+
+// Opens an application at a directory, given as an argument, not a command.
+const OPEN = "/usr/bin/open";
+
+// Terminal, named by its bundle identifier: a display name could match some
+// other application called Terminal.
+const TERMINAL = "com.apple.Terminal";
+
+module.exports = { OPEN, TERMINAL };
+
+},
+
+"src/runtime/bridge.js": function (require, module, exports) {
+"use strict";
+
+const { displayPath } = require("../core/paths.js");
+
+/*
+ * What every native adapter is handed: `ns`, the Objective-C namespace JXA
+ * calls $; `objc`, the ObjC object; `outParameter`, a maker of fresh
+ * out-parameters; and `now`, a monotonic clock in seconds. One value rather
+ * than four arguments, so each adapter's signature says what it needs beyond
+ * the bridge.
+ *
+ * An out-parameter is made with $() rather than Ref(). Measured on macOS:
+ * reading an NSError back out of a Ref() after a failing Foundation call
+ * crashes osascript outright -- SIGSEGV, no message, five runs in five -- and
+ * reduces to thirty lines with no bundler involved. Whether the read happens
+ * inside the throw, before it, or in a nested helper makes no difference, and
+ * any unrelated Objective-C call in between hides it again, which is what
+ * makes it a memory fault rather than a mistake in the call. With $() the
+ * same calls are stable, and the error is readable: a missing path describes
+ * itself, where the Ref() form unwrapped to undefined.
+ */
+
+function isNil(value) {
+    return value === null || value === undefined || value.isNil();
+}
+
+function fileManager(bridge) {
+    return bridge.ns.NSFileManager.defaultManager;
+}
+
+/*
+ * An NSError said in words, as the end of a message about what failed, with
+ * its domain and code kept: in the message, where a report quotes them, and
+ * on the Error for whatever handles it. The code arrives from the bridge as
+ * text (measured) and is read as a number.
+ */
+function nativeFailure(bridge, operation, path, error) {
+    const described = Boolean(error) && !isNil(error);
+    const failure = new Error(described
+        ? `${operation} ${displayPath(path)}: ${String(bridge.objc.unwrap(error.localizedDescription))} ` +
+            `(${String(bridge.objc.unwrap(error.domain))} ${Number(error.code)})`
+        : `${operation} ${displayPath(path)}: macOS did not provide further details.`);
+
+    failure.native = described
+        ? { operation, path, domain: String(bridge.objc.unwrap(error.domain)), code: Number(error.code) }
+        : { operation, path, domain: null, code: null };
+
+    return failure;
+}
+
+/*
+ * A zero-argument Objective-C method, which JXA performs on property access.
+ * Named once rather than written as a bare expression statement at each call,
+ * where it reads as a mistake.
+ */
+function perform(target, method) {
+    return target[method];
+}
+
+module.exports = { isNil, fileManager, nativeFailure, perform };
+
+},
+
+"src/runtime/attributes.js": function (require, module, exports) {
+"use strict";
+
+const { displayPath } = require("../core/paths.js");
+const { isNil, fileManager, nativeFailure } = require("./bridge.js");
+
+/*
+ * What a filesystem item is, asked of Foundation.
+ *
+ * NSFileManager's attributes are lstat-like: the final symbolic link is not
+ * followed. So a link is classified as a link before anything asks NSURL for
+ * resource metadata or resolves an alias, which would follow it.
+ */
+
+function attributes(bridge, path) {
+    const error = bridge.outParameter();
+    const result = fileManager(bridge).attributesOfItemAtPathError(path, error);
+
+    if (isNil(result)) {
+        throw nativeFailure(bridge, "Cannot inspect", path, error);
+    }
+
+    return result;
+}
+
+function attribute(bridge, dict, key) {
+    const value = dict.objectForKey(key);
+
+    if (isNil(value)) {
+        throw new Error("macOS omitted a required filesystem attribute.");
+    }
+
+    return bridge.objc.unwrap(value);
+}
+
+function resourceBoolean(bridge, path, key) {
+    const value = bridge.outParameter();
+    const error = bridge.outParameter();
+    const url = bridge.ns.NSURL.fileURLWithPath(path);
+
+    if (!url.getResourceValueForKeyError(value, key, error)) {
+        throw nativeFailure(bridge, "Cannot read metadata for", path, error);
+    }
+
+    if (isNil(value)) {
+        throw new Error(`macOS omitted a required resource value for ${displayPath(path)}.`);
+    }
+
+    return Boolean(bridge.objc.unwrap(value));
+}
+
+/*
+ * What an item is, as far as that decides a destination: a folder, a
+ * symbolic link, a Finder alias, or anything else, which opens its parent.
+ * Whether a folder is a package is not asked here -- it changes a question's
+ * wording, never a destination -- so walking a path asks nothing optional of
+ * every folder on the way. Whether a file is an alias is asked, and a failure
+ * to answer is an error: guessing "not an alias" would open the wrong place.
+ */
+function inspect(bridge, path) {
+    const { ns, objc } = bridge;
+    const type = attribute(bridge, attributes(bridge, path), ns.NSFileType);
+
+    if (type === objc.unwrap(ns.NSFileTypeSymbolicLink)) {
+        return { kind: "symlink" };
+    }
+
+    if (type === objc.unwrap(ns.NSFileTypeDirectory)) {
+        return { kind: "directory" };
+    }
+
+    if (type === objc.unwrap(ns.NSFileTypeRegular) && resourceBoolean(bridge, path, ns.NSURLIsAliasFileKey)) {
+        return { kind: "alias" };
+    }
+
+    // Sockets, pipes and devices also have a containing folder. Nothing here
+    // opens or reads the selected item, so they need no special access.
+    return { kind: "file" };
+}
+
+// For a question's wording only, so an answer macOS cannot give reads as "no".
+function isPackage(bridge, path) {
+    try {
+        return resourceBoolean(bridge, path, bridge.ns.NSURLIsPackageKey);
+    } catch {
+        return false;
+    }
+}
+
+module.exports = { attributes, attribute, resourceBoolean, inspect, isPackage };
+
+},
+
+"src/runtime/links.js": function (require, module, exports) {
+"use strict";
+
+const { displayPath } = require("../core/paths.js");
+const { physicalPath } = require("../core/resolve.js");
+const { isNil, fileManager, nativeFailure } = require("./bridge.js");
+const { inspect } = require("./attributes.js");
+
+/*
+ * Where Finder aliases and symbolic links point, and whether a destination is
+ * still a directory Terminal can enter.
+ */
+
+/*
+ * An alias is resolved without mounting a volume and without showing UI: a
+ * run that follows an alias must not connect to a server or put up a dialog to
+ * find its target. The two options are bit flags, combined as Foundation's
+ * option sets are.
+ */
+function quietResolution(ns) {
+    return ns.NSURLBookmarkResolutionWithoutUI | ns.NSURLBookmarkResolutionWithoutMounting;
+}
+
+function resolveAlias(bridge, path) {
+    const { ns, objc } = bridge;
+    const error = bridge.outParameter();
+    const url = ns.NSURL.URLByResolvingAliasFileAtURLOptionsError(
+        ns.NSURL.fileURLWithPath(path),
+        quietResolution(ns),
+        error
+    );
+
+    if (isNil(url)) {
+        throw nativeFailure(bridge, "Cannot resolve alias target for", path, error);
+    }
+
+    if (!url.isFileURL) {
+        throw new Error("The alias target is not a local filesystem URL.");
+    }
+
+    return String(objc.unwrap(url.path));
+}
+
+function readLink(bridge, path) {
+    const error = bridge.outParameter();
+    const value = fileManager(bridge).destinationOfSymbolicLinkAtPathError(path, error);
+
+    if (isNil(value)) {
+        throw nativeFailure(bridge, "Cannot read symbolic link", path, error);
+    }
+
+    return String(bridge.objc.unwrap(value));
+}
+
+/*
+ * A file's containing directory may itself be a symbolic link -- /tmp is one.
+ * Its physical target is validated, but the chosen spelling is what Terminal
+ * is given. This is not an implicit Finder-alias resolution.
+ */
+function validateDirectory(bridge, path) {
+    const io = {
+        inspect: (candidate) => inspect(bridge, candidate),
+        readLink: (candidate) => readLink(bridge, candidate)
+    };
+    const physical = physicalPath(path, io, { links: 0 });
+
+    if (io.inspect(physical).kind !== "directory") {
+        throw new Error(`The destination is no longer a directory: ${displayPath(path)}.`);
+    }
+
+    if (!fileManager(bridge).isExecutableFileAtPath(path)) {
+        throw new Error(`The destination directory cannot be entered: ${displayPath(path)}.`);
+    }
+}
+
+module.exports = { resolveAlias, readLink, validateDirectory };
+
+},
+
+"src/runtime/given-path.js": function (require, module, exports) {
+"use strict";
+
+const { isNil } = require("./bridge.js");
+
+/*
+ * The path Shortcuts handed over, whatever form it arrived in.
+ *
+ * Shortcuts can pass a plain string, a native NSString or NSURL, or a JXA Path.
+ * Each is read the one way that form documents; nothing is serialized
+ * generically and nothing is looked up in Finder. The planning core validates
+ * what comes out.
+ */
+
+// typeof null is "object", so null is the one value that has to be named.
+function isObjectLike(value) {
+    return value !== null &&
+        (typeof value === "object" || typeof value === "function") &&
+        !Array.isArray(value);
+}
+
+// A native NSString's text. Other JXA objects can throw when unwrapped.
+function nativeText(bridge, value) {
+    try {
+        const unwrapped = bridge.objc.unwrap(value);
+
+        return typeof unwrapped === "string" ? unwrapped : null;
+    } catch {
+        return null;
+    }
+}
+
+/*
+ * A file URL's text. A file-reference URL (file:///.file/id=...) names an
+ * object, not a path -- read as a path it would name nothing -- so Foundation
+ * turns it into the path of that object first. Only a reference is converted:
+ * a path URL is taken as spelled, so a link stays the link that was selected.
+ */
+function nativeURLText(objc, url) {
+    if (!url.isFileURL) {
+        throw new Error("Only local file URLs are accepted.");
+    }
+
+    const pathURL = url.isFileReferenceURL ? url.filePathURL : url;
+
+    if (isNil(pathURL)) {
+        throw new Error("The selected item no longer exists.");
+    }
+
+    return String(objc.unwrap(pathURL.absoluteString));
+}
+
+/*
+ * A native URL's text when the value is one, and null when it is not. Asking
+ * an arbitrary JXA object about an Objective-C class can throw -- an object
+ * without the method among them -- and an object that cannot say is not one.
+ */
+function nativeURLOrNothing(bridge, value) {
+    try {
+        if (!value.isKindOfClass(bridge.ns.NSURL)) {
+            return null;
+        }
+    } catch {
+        return null;
+    }
+
+    return nativeURLText(bridge.objc, value);
+}
+
+// Apple's documented Path conversion, accepted only when it looks like a path.
+function pathConversion(bridge, value) {
+    if (typeof value.toString !== "function") {
+        return null;
+    }
+
+    const text = value.toString();
+
+    return typeof text === "string" && (text.startsWith("/") || /^file:/iu.test(text)) ? text : null;
+}
+
+/*
+ * A file-reference URL written as text -- `file:///.file/id=...` -- goes
+ * through Foundation like a native one, so it becomes the path of what it
+ * refers to rather than the path "/.file/id=...". Any other text is left to
+ * the core, which decodes a path URL once and keeps its spelling.
+ */
+const REFERENCE_TEXT = /^file:\/\/(?:localhost)?\/\.file\/id=/iu;
+
+function referenceResolved(bridge, text) {
+    if (!REFERENCE_TEXT.test(text)) {
+        return text;
+    }
+
+    const url = bridge.ns.NSURL.URLWithString(text);
+
+    if (isNil(url)) {
+        throw new Error("The selected item no longer exists.");
+    }
+
+    return nativeURLText(bridge.objc, url);
+}
+
+/*
+ * Each reader answers text or null, and they are asked in the order the forms
+ * are cheapest to recognise and least able to be mistaken for each other. The
+ * first answer that is not null is the path.
+ */
+const READERS = [nativeText, nativeURLOrNothing, pathConversion];
+
+function readText(bridge, value) {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if (!isObjectLike(value)) {
+        throw new Error("Shortcuts must supply a file, folder, absolute path, or local file URL.");
+    }
+
+    for (const read of READERS) {
+        const text = read(bridge, value);
+
+        if (text !== null) {
+            return text;
+        }
+    }
+
+    throw new Error("The supplied item has no usable filesystem path. Configure the action to receive Files.");
+}
+
+function pathOf(bridge, value) {
+    return referenceResolved(bridge, readText(bridge, value));
+}
+
+module.exports = { pathOf };
+
+},
+
+"src/runtime/foundation.js": function (require, module, exports) {
+"use strict";
+
+const { isNil, nativeFailure } = require("./bridge.js");
+const { inspect, isPackage } = require("./attributes.js");
+const { resolveAlias, readLink, validateDirectory } = require("./links.js");
+const { pathOf } = require("./given-path.js");
+
+/*
+ * The filesystem as the rest of the runtime sees it: each Foundation question
+ * with the bridge already supplied. The dialogs and the launcher take this
+ * rather than the bridge's parts, which is also what lets their tests stand
+ * in for Foundation with a handful of answers.
+ */
+function createFoundation(bridge) {
+    return {
+        inspect: (path) => inspect(bridge, path),
+        isPackage: (path) => isPackage(bridge, path),
+        resolveAlias: (path) => resolveAlias(bridge, path),
+        readLink: (path) => readLink(bridge, path),
+        pathOf: (value) => pathOf(bridge, value),
+        validateDirectory: (path) => validateDirectory(bridge, path),
+        isNil,
+        nativeFailure: (operation, path, error) => nativeFailure(bridge, operation, path, error)
+    };
+}
+
+module.exports = { createFoundation };
+
+},
+
+"src/runtime/dialogs.js": function (require, module, exports) {
+"use strict";
+
+const { presentLocation } = require("../core/present.js");
+
+/*
+ * The questions asked of the person.
+ *
+ * Each opens with the question itself, shows each path once -- the item's
+ * name, and the folder it is in -- and answers with a button that says what
+ * it does: Cancel, the alternative, and the usual answer as the default, so
+ * Return takes it and Esc cancels. A link question's answers say "Follow",
+ * not "Open", since a folder question may come next. Names are shown by
+ * src/core/present.js, which quotes and escapes anything that could mislead;
+ * what is shown is never read back as a path.
+ */
+
+const TITLE = "Term At Target";
+const CANCEL = "Cancel";
+const INSIDE = "Open Inside";
+const PARENT = "Open in Parent";
+const WHERE_IT_IS = "Open Where It Is";
+const LINKS = {
+    alias: { noun: "Finder alias", label: "Alias", follow: "Follow Alias" },
+    symlink: { noun: "symbolic link", label: "Link", follow: "Follow Link" }
+};
+
+/*
+ * The button pressed, which must be one of those offered. Cancel is not an
+ * answer: Standard Additions throws for it with errorNumber -128, which the
+ * core recognises as a cancellation, so it passes through as thrown.
+ */
+function ask(app, text, answers) {
+    const answer = app.displayDialog(text, {
+        withTitle: TITLE,
+        buttons: [CANCEL, answers.other, answers.usual],
+        defaultButton: answers.usual,
+        cancelButton: CANCEL
+    });
+
+    if (answer === null || typeof answer !== "object" || ![answers.other, answers.usual].includes(answer.buttonReturned)) {
+        throw new Error("The location dialog returned an invalid answer.");
+    }
+
+    return answer.buttonReturned;
+}
+
+function folderQuestion(path, via, files) {
+    const { name, parent } = presentLocation(path);
+    const noun = files.isPackage(path) ? "Package" : "Folder";
+    const origin = via === null ? "" : `\nThis is where the selected ${LINKS[via].noun} points.`;
+
+    return `Where should Terminal open?\n\n${noun}: ${name}\nIn: ${parent}${origin}`;
+}
+
+function createDialogs(app, files) {
+    return {
+        chooseFolder() {
+            return app.chooseFolder({ withPrompt: "Choose a folder to open in Terminal:", multipleSelectionsAllowed: false });
+        },
+        chooseFolderMode(path, via) {
+            return ask(app, folderQuestion(path, via, files), { other: PARENT, usual: INSIDE }) === INSIDE ? "INSIDE" : "LEVEL";
+        },
+        chooseLink(path, kind) {
+            const link = LINKS[kind];
+            const { name, parent } = presentLocation(path);
+            const text = `Follow this ${link.noun}, or open Terminal where it is?\n\n${link.label}: ${name}\nIn: ${parent}`;
+
+            return ask(app, text, { other: WHERE_IT_IS, usual: link.follow }) === link.follow ? "TARGET" : "LINK";
+        }
+    };
+}
+
+module.exports = { createDialogs };
+
+},
+
+"src/runtime/supervise.js": function (require, module, exports) {
+"use strict";
+
+const { messageOf } = require("../core/errors.js");
+const { perform } = require("./bridge.js");
+
+/*
+ * One helper process, run to its end or to a deadline, whichever comes first.
+ *
+ * It reads nothing from the helper: stdin, stdout and stderr are the null
+ * device. A pipe was the one thing that could hold a run past its deadline --
+ * a helper blocked writing to it, or a descendant keeping it open after the
+ * helper exited (measured: 25 s past a 10 s deadline) -- and JXA cannot read
+ * one without risking exactly that, since making it non-blocking needs the
+ * variadic fcntl(). The exit status is what is kept.
+ *
+ * The deadline is elapsed time on a monotonic clock, fixed before launch and
+ * re-read after every sleep, so an overlong sleep ends the wait at the next
+ * check instead of adding to it. It bounds waiting for the helper -- not a
+ * launch call the system stalls inside, and not time the Mac is asleep.
+ *
+ * Once launched, the request may already have reached its target, so nothing
+ * that happens afterwards escapes as a plain failure. If the helper outlives
+ * the deadline, or watching it fails, it is abandoned: told to stop with
+ * SIGTERM through the task object, watched for a second, and reported as
+ * stopped or not. It is never signalled by pid -- NSTask reaps its child as
+ * soon as it exits, so a pid read a moment ago may already name something
+ * else -- which means a helper that ignores SIGTERM is reported, with its pid,
+ * rather than killed.
+ */
+
+const DEADLINE_SECONDS = 10;
+const POLL_SECONDS = 0.05;
+const STOP_GRACE_SECONDS = 1;
+
+function taskFor(bridge, command) {
+    const { ns, objc } = bridge;
+    const task = ns.NSTask.alloc.init;
+    const nothing = ns.NSFileHandle.fileHandleWithNullDevice;
+
+    task.executableURL = ns.NSURL.fileURLWithPath(command.executable);
+    task.arguments = objc.wrap(command.arguments);
+    task.standardInput = nothing;
+    task.standardOutput = nothing;
+    task.standardError = nothing;
+
+    return task;
+}
+
+// Whether the task ended before the clock reached `until`.
+function endedBy(bridge, task, until) {
+    while (task.running) {
+        const left = until - bridge.now();
+
+        if (left <= 0) {
+            return false;
+        }
+
+        bridge.ns.NSThread.sleepForTimeInterval(Math.min(POLL_SECONDS, left));
+    }
+
+    return true;
+}
+
+// A step whose failure is kept, never thrown over the outcome.
+function attempt(action, failures) {
+    try {
+        return action();
+    } catch (error) {
+        failures.push(messageOf(error));
+        return null;
+    }
+}
+
+// Told to stop, watched for a bounded while, and reported either way.
+function abandon(bridge, task, lost) {
+    const cleanup = [];
+
+    attempt(() => perform(task, "terminate"), cleanup);
+
+    const stopped = attempt(() => endedBy(bridge, task, bridge.now() + STOP_GRACE_SECONDS), cleanup) === true;
+    const pid = attempt(() => Number(task.processIdentifier), cleanup);
+
+    return { finished: false, lost, stopped, pid, cleanup };
+}
+
+function supervise(bridge, files, command) {
+    const expiry = bridge.now() + DEADLINE_SECONDS;
+    const task = taskFor(bridge, command);
+    const error = bridge.outParameter();
+
+    if (!task.launchAndReturnError(error)) {
+        throw files.nativeFailure(command.failure, command.subject, error);
+    }
+
+    try {
+        if (endedBy(bridge, task, expiry)) {
+            return { finished: true, status: Number(task.terminationStatus) };
+        }
+    } catch (failure) {
+        return abandon(bridge, task, messageOf(failure));
+    }
+
+    return abandon(bridge, task, null);
+}
+
+module.exports = { supervise, DEADLINE_SECONDS, STOP_GRACE_SECONDS };
+
+},
+
+"src/runtime/launcher.js": function (require, module, exports) {
+"use strict";
+
+const { absolutePath, displayPath } = require("../core/paths.js");
+const { OPEN, TERMINAL } = require("./executables.js");
+const { supervise, DEADLINE_SECONDS } = require("./supervise.js");
+
+/*
+ * Terminal, opened at a directory by /usr/bin/open.
+ *
+ * The directory travels as one argument of four, never inside a command a
+ * shell would read: a name with quotes, $, backticks, ; or & in it is a name.
+ * Measured on macOS against a directory named with all of them, and an emoji:
+ * the shell Terminal starts is in that directory exactly.
+ *
+ * Success means the request was handed to Terminal, not that a shell is ready.
+ * A request still pending at the deadline may yet reach Terminal, so it is
+ * reported as that -- never as a plain failure, which would invite a retry.
+ */
+
+function pending(directory, ran) {
+    const cause = ran.lost === null
+        ? `open had not finished after ${DEADLINE_SECONDS} seconds`
+        : `open could not be followed (${ran.lost})`;
+    const said = [`Terminal was asked to open ${displayPath(directory)}, but ${cause}; ` +
+        "the window may still appear. Nothing was retried."];
+
+    if (!ran.stopped) {
+        said.push(ran.pid === null
+            ? "open was told to stop, and could not be seen to stop."
+            : `open (process ${ran.pid}) was told to stop, and could not be seen to stop.`);
+    }
+
+    return [...said, ...ran.cleanup.map((failure) => `Stopping open also failed: ${failure}`)].join(" ");
+}
+
+function launch(bridge, files, path) {
+    const directory = absolutePath(path);
+    const ran = supervise(bridge, files, {
+        executable: OPEN,
+        arguments: ["-b", TERMINAL, directory],
+        failure: "Cannot launch Terminal at",
+        subject: directory
+    });
+
+    if (!ran.finished) {
+        throw new Error(pending(directory, ran));
+    }
+
+    if (ran.status !== 0) {
+        throw new Error(`Terminal could not be opened at ${displayPath(directory)} (open exit ${ran.status}). ` +
+            "Check that Terminal opens on its own.");
+    }
+}
+
+function createLauncher(bridge, files) {
+    return (path) => launch(bridge, files, path);
+}
+
+module.exports = { createLauncher };
+
+},
+
+"src/runtime/host.js": function (require, module, exports) {
+"use strict";
+
+const { createFoundation } = require("./foundation.js");
+const { createDialogs } = require("./dialogs.js");
+const { createLauncher } = require("./launcher.js");
+
+/*
+ * The real host: the macOS answers the planning core asks for, built from the
+ * JXA globals once per run.
+ */
+
+// A fresh Objective-C out-parameter. Why this is $() and not Ref() is in
+// bridge.js: the Ref() form crashes osascript on macOS.
+function outParameter() {
+    return $();
+}
+
+// Seconds since the Mac started: a clock no wall-clock change can move.
+function now() {
+    return $.NSProcessInfo.processInfo.systemUptime;
+}
+
+function createMacHost() {
+    ObjC.import("Foundation");
+
+    const app = Application.currentApplication();
+
+    app.includeStandardAdditions = true;
+
+    const bridge = { ns: $, objc: ObjC, outParameter, now };
+    const files = createFoundation(bridge);
+    const dialogs = createDialogs(app, files);
+
+    return {
+        pathOf: files.pathOf,
+        inspect: files.inspect,
+        resolveAlias: files.resolveAlias,
+        readLink: files.readLink,
+        validateDirectory: files.validateDirectory,
+        chooseFolder: dialogs.chooseFolder,
+        chooseLink: dialogs.chooseLink,
+        chooseFolderMode: dialogs.chooseFolderMode,
+        launch: createLauncher(bridge, files)
+    };
+}
+
+module.exports = { createMacHost };
+
+},
+
+"src/runtime/entry.js": function (require, module, exports) {
+"use strict";
+
+const { execute } = require("../core/workflow.js");
+const { createMacHost } = require("./host.js");
+const { createFoundation } = require("./foundation.js");
+const { supervise } = require("./supervise.js");
+const { createDialogs } = require("./dialogs.js");
+const { presentName } = require("../core/present.js");
+const config = require("#config");
+
+function run(input) {
+    return execute(input, config, createMacHost());
+}
+
+/*
+ * createMacHost, and the parts under `forNativeTests`, are for the native
+ * suite, which appends its own entry point to a temporary copy and drives the
+ * real adapters: the package question (asked only by a dialog), the
+ * supervisor with commands other than open, the questions themselves, shown
+ * by Standard Additions with a time limit so nobody has to answer, and the
+ * name presentation, whose Unicode tables are the engine's own. Nothing in a
+ * production run reaches them except through run().
+ */
+module.exports = { run, createMacHost, execute, forNativeTests: { createFoundation, supervise, createDialogs, presentName } };
+
+},
+"#config": function (require, module) { module.exports = TERM_AT_TARGET_CONFIG; },
+"#metadata": function (require, module) { module.exports = {"title":"Term At Target","minimumMacOS":"12.3","runtimeLanguage":"ES2022","version":"1.0.0","license":"MIT"}; }
+    };
+    var graph = {"src/core/config.js":{},"src/core/errors.js":{},"src/core/paths.js":{},"src/core/invocation.js":{},"src/core/unicode-tables.js":{},"src/core/unicode-sets.js":{"./unicode-tables.js":"src/core/unicode-tables.js"},"src/core/writing.js":{"./unicode-sets.js":"src/core/unicode-sets.js"},"src/core/present.js":{"./paths.js":"src/core/paths.js","./writing.js":"src/core/writing.js"},"src/core/resolve.js":{"./paths.js":"src/core/paths.js"},"src/core/plan.js":{"./paths.js":"src/core/paths.js","./resolve.js":"src/core/resolve.js"},"src/core/workflow.js":{"./config.js":"src/core/config.js","./paths.js":"src/core/paths.js","./invocation.js":"src/core/invocation.js","./errors.js":"src/core/errors.js","./plan.js":"src/core/plan.js"},"src/runtime/executables.js":{},"src/runtime/bridge.js":{"../core/paths.js":"src/core/paths.js"},"src/runtime/attributes.js":{"../core/paths.js":"src/core/paths.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/links.js":{"../core/paths.js":"src/core/paths.js","../core/resolve.js":"src/core/resolve.js","./bridge.js":"src/runtime/bridge.js","./attributes.js":"src/runtime/attributes.js"},"src/runtime/given-path.js":{"./bridge.js":"src/runtime/bridge.js"},"src/runtime/foundation.js":{"./bridge.js":"src/runtime/bridge.js","./attributes.js":"src/runtime/attributes.js","./links.js":"src/runtime/links.js","./given-path.js":"src/runtime/given-path.js"},"src/runtime/dialogs.js":{"../core/present.js":"src/core/present.js"},"src/runtime/supervise.js":{"../core/errors.js":"src/core/errors.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/launcher.js":{"../core/paths.js":"src/core/paths.js","./executables.js":"src/runtime/executables.js","./supervise.js":"src/runtime/supervise.js"},"src/runtime/host.js":{"./foundation.js":"src/runtime/foundation.js","./dialogs.js":"src/runtime/dialogs.js","./launcher.js":"src/runtime/launcher.js"},"src/runtime/entry.js":{"../core/workflow.js":"src/core/workflow.js","./host.js":"src/runtime/host.js","./foundation.js":"src/runtime/foundation.js","./supervise.js":"src/runtime/supervise.js","./dialogs.js":"src/runtime/dialogs.js","../core/present.js":"src/core/present.js","#config":"#config"}};
+    var cache = Object.create(null);
+    function load(id) {
+        if (Object.prototype.hasOwnProperty.call(cache, id)) { return cache[id].exports; }
+        if (!Object.prototype.hasOwnProperty.call(factories, id)) { throw new Error("Unknown embedded module: " + id); }
+        var module = { exports: {} };
+        cache[id] = module;
+        function localRequire(specifier) {
+            if (!graph[id] || !Object.prototype.hasOwnProperty.call(graph[id], specifier)) {
+                throw new Error("Undeclared embedded dependency: " + specifier);
+            }
+            return load(graph[id][specifier]);
+        }
+        factories[id](localRequire, module, module.exports);
+        return module.exports;
+    }
+    return load("src/runtime/entry.js");
+}());
+
+function run(input, parameters) {
+    return __TermAtTarget.run(input);
+}

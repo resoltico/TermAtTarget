@@ -1,0 +1,26 @@
+/*
+ * The script inside the harness shortcuts. It runs whichever artifact the
+ * native suite last wrote, with exactly the arguments Shortcuts gave it, so
+ * one import tests every later build through Shortcuts' own input delivery.
+ * It also records the shape of what it was given, as evidence of that shape.
+ */
+function run(input, parameters) {
+    "use strict";
+    ObjC.import("Foundation");
+    var directory = "/private/tmp/term-at-target-harness";
+    function shape(value) {
+        if (Array.isArray(value)) {
+            return value.map(shape);
+        }
+        if (value && typeof value === "object" && Object.prototype.hasOwnProperty.call(value, "ignoresInput")) {
+            return { options: Object.keys(value).sort() };
+        }
+        return "item: " + String(value);
+    }
+    $(JSON.stringify({ input: shape(input), parameters: shape(parameters) }))
+        .writeToFileAtomicallyEncodingError(directory + "/last-input.json", true, $.NSUTF8StringEncoding, $());
+    var source = ObjC.unwrap($.NSString.stringWithContentsOfFileEncodingError(
+        directory + "/artifact.jxa", $.NSUTF8StringEncoding, $()));
+    var artifactRun = (0, eval)("(function () {\n" + source + "\nreturn run;\n}())");
+    return artifactRun(input, parameters);
+}

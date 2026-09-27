@@ -1,0 +1,66 @@
+TERM AT TARGET 1.0.0 — SHORTCUTS INSTALLATION
+
+Source, releases and build attestation:
+
+    https://github.com/resoltico/TermAtTarget
+
+What has been verified, and on which macOS, is in QA.md with the source.
+
+Verifying what you downloaded
+=============================
+
+Every file in the release is signed with a GitHub build attestation. With the
+GitHub CLI installed, from the folder you downloaded them into:
+
+    gh attestation verify "Term-At-Target.jxa" \
+        --repo resoltico/TermAtTarget
+    shasum --check SHA256SUMS
+
+Requirements
+============
+
+macOS 12.3 or later. Nothing has to be installed.
+
+Install the Quick Action
+========================
+
+1. Open Shortcuts and create a new shortcut named Term At Target.
+2. In its details, enable Use as Quick Action and Finder.
+3. Configure the shortcut to receive Files from Finder. For no input, continue
+   with no input rather than stopping the shortcut or inserting unrelated data.
+4. Add Run JavaScript for Mac Automation. Do not use Run AppleScript or the
+   similarly named JavaScript-on-Web-Page action.
+5. Delete the example code. Paste all of Term-At-Target.jxa into the action.
+6. Feed Shortcut Input directly into this action, or put Get Selected Files in
+   Finder before it and feed that in; both have been tested. Do not add a
+   conversion or copying action that changes a selected item's path or
+   resolves its alias.
+7. Test a regular file, a folder, no input, and a Finder alias whose own location
+   differs from its target. Check that the original path, not a temporary copy,
+   reaches the action. QA.md lists the fuller checks.
+
+Nothing needs to follow the action: it returns no result.
+
+Grant only the access needed for selected locations when macOS or Shortcuts
+asks; do not enable Full Disk Access merely as a generic installation step.
+
+Settings
+========
+
+Near the top of the script, TERM_AT_TARGET_CONFIG contains:
+
+    defaultFolderAction: ASK / INSIDE / LEVEL
+    defaultLinkAction:   ASK / TARGET / LINK
+
+Leave ASK to choose each time. LEVEL means the parent folder. TARGET follows a
+Finder alias or symbolic link to where it points; LINK opens the folder the
+link itself is in.
+Keep values quoted as JavaScript strings. To maintain source-controlled changes,
+edit config.json in the project and rebuild instead of editing only dist.
+
+Removal
+=======
+
+Disable and delete the shortcut and remove any assigned keyboard shortcut.
+That is all: there is no installed executable, preference, service or helper
+app, and the action writes nothing to disk.

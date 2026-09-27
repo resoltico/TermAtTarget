@@ -1,0 +1,58 @@
+/* The native suite's two slower modes, appended to the generated artifact
+ * before native-body.jxa: the supervisor against real processes, and each
+ * question shown by the real Standard Additions.
+ */
+function superviseMode(bridge, files, base) {
+    "use strict";
+    const supervise = __TermAtTarget.forNativeTests.supervise;
+    const ran = function (script) {
+        const started = Date.now();
+        const result = supervise(bridge, files, { executable: "/bin/sh", arguments: ["-c", script], failure: "Cannot run", subject: "/bin/sh" });
+        result.seconds = (Date.now() - started) / 1000;
+        return result;
+    };
+    let unstartable = null;
+    try {
+        supervise(bridge, files, { executable: base + "/file.txt", arguments: [], failure: "Cannot run", subject: base + "/file.txt" });
+    } catch (error) { unstartable = String(error.message); }
+    return {
+        quiet: ran("exit 0"),
+        failing: ran("printf oops >&2; exit 3"),
+        lingering: ran("(sleep 20 >&2 &); exit 1"),
+        flood: ran("exec /usr/bin/yes >&2"),
+        stubborn: ran("trap '' TERM; while :; do sleep 1; done"),
+        unstartable: unstartable
+    };
+}
+
+/* Each question, shown by the real Standard Additions with exactly the
+ * options the artifact passes, plus a one-second limit so nobody has to
+ * answer. Timing out is not one of the offered buttons, so the artifact must
+ * refuse it -- which shows the options were accepted as given.
+ */
+function dialogsMode(files, base) {
+    "use strict";
+    const app = Application.currentApplication();
+    app.includeStandardAdditions = true;
+    const timed = { displayDialog: function (text, options) {
+        return app.displayDialog(text, Object.assign({}, options, { givingUpAfter: 1 }));
+    } };
+    const dialogs = __TermAtTarget.forNativeTests.createDialogs(timed, files);
+    const refusal = function (ask) {
+        try { ask(); } catch (error) { return String(error.message); }
+        return null;
+    };
+    return {
+        folder: refusal(function () { dialogs.chooseFolderMode(base + "/Demo.app", null); }),
+        link: refusal(function () { dialogs.chooseLink(base + "/relative-link", "symlink"); })
+    };
+}
+
+/* Each name, as the engine osascript runs presents it; compared by the suite
+ * with the same names presented by Node, since the Unicode property tables
+ * the rule relies on belong to each engine.
+ */
+function presentMode(names) {
+    "use strict";
+    return names.map(function (name) { return __TermAtTarget.forNativeTests.presentName(name); });
+}

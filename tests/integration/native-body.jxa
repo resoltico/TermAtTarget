@@ -1,0 +1,123 @@
+/* Appended to the generated artifact, after native-modes.jxa, in a temporary
+ * copy made by macos.mjs.
+ * Replaces only its OSA run entry point. Real native adapters remain unchanged.
+ * Out-parameters are made with $(), as the artifact makes them: an NSError
+ * read back out of a Ref() crashes osascript (see src/runtime/bridge.js).
+ */
+function run(argv) {
+    "use strict";
+    ObjC.import("Foundation");
+    const mode = argv[0];
+    const base = argv[1];
+    const host = __TermAtTarget.createMacHost();
+    const bridge = { ns: $, objc: ObjC, outParameter: function () { return $(); },
+        now: function () { return $.NSProcessInfo.processInfo.systemUptime; } };
+    const files = __TermAtTarget.forNativeTests.createFoundation(bridge);
+    function insist(condition, label) {
+        if (!condition) { throw new Error("Native assertion failed: " + label); }
+    }
+    function makeAlias(target, name) {
+        const error = $();
+        const data = $.NSURL.fileURLWithPath(target).bookmarkDataWithOptionsIncludingResourceValuesForKeysRelativeToURLError(
+            $.NSURLBookmarkCreationSuitableForBookmarkFile, $(), $(), error
+        );
+        insist(!data.isNil(), "bookmark creation");
+        insist($.NSURL.writeBookmarkDataToURLOptionsError(data, $.NSURL.fileURLWithPath(name), 0, error), "alias file writing");
+    }
+    if (mode === "alias") {
+        makeAlias(argv[2], argv[3]);
+        return JSON.stringify({ alias: argv[3] });
+    }
+    if (mode === "terminal") {
+        host.validateDirectory(argv[2]);
+        host.launch(argv[2]);
+        return JSON.stringify({ handedToOpen: true });
+    }
+    if (mode === "supervise") {
+        return JSON.stringify(superviseMode(bridge, files, base));
+    }
+    if (mode === "present") {
+        return JSON.stringify(presentMode(JSON.parse(argv[2])));
+    }
+    if (mode === "dialogs") {
+        return JSON.stringify(dialogsMode(files, base));
+    }
+    insist(mode === "main", "recognized test mode");
+    const passed = [];
+    function record(condition, label) { insist(condition, label); passed.push(label); }
+    // Refused with its own message: a TypeError from a broken bridge call
+    // would be a failure too, and must not pass for the refusal expected.
+    function fails(action, expected, label) {
+        let message = null;
+        try { action(); } catch (error) { message = String(error && error.message); }
+        insist(message !== null && expected.test(message),
+            label + ": " + (message === null ? "nothing was refused" : message));
+        passed.push(label);
+    }
+    makeAlias(base + "/folder", base + "/folder-alias");
+    insist($.NSFileManager.defaultManager.createSymbolicLinkAtPathWithDestinationPathError(base + "/link-to-file", "file.txt", $()), "link to a file fixture");
+    insist($.NSFileManager.defaultManager.createSymbolicLinkAtPathWithDestinationPathError(base + "/link-to-alias", "folder-alias", $()), "link to an alias fixture");
+    makeAlias(base + "/file.txt", base + "/file-alias");
+    makeAlias(base + "/doomed.txt", base + "/broken-alias");
+    insist($.NSFileManager.defaultManager.removeItemAtPathError(base + "/doomed.txt", $()), "remove alias target fixture");
+
+    record(host.inspect(base + "/folder").kind === "directory", "Foundation directory classification");
+    record(host.inspect(base + "/file.txt").kind === "file", "Foundation file classification");
+    record(host.inspect(base + "/folder-alias").kind === "alias", "Finder alias classification");
+    record(host.inspect(base + "/broken-alias").kind === "alias", "broken alias classification without target resolution");
+    record(host.inspect(base + "/relative-link").kind === "symlink", "lstat-like symlink classification");
+    record(files.isPackage(base + "/Demo.app") === true && files.isPackage(base + "/folder") === false, "package metadata, asked on its own");
+    record(files.isPackage(base + "/missing") === false, "an unanswerable package question reads as a folder");
+    record(host.pathOf(Path(base + "/folder-alias")) === base + "/folder-alias", "Path preserves alias pathname");
+    record(host.pathOf($(base + "/file.txt")) === base + "/file.txt", "NSString input");
+    const reference = $.NSURL.fileURLWithPath(base + "/file.txt").fileReferenceURL;
+    record(/^file:\/\/\/\.file\/id=/.test(ObjC.unwrap(reference.absoluteString)), "a file-reference URL fixture is one");
+    record(decodeURIComponent(host.pathOf(reference).replace(/^file:\/\//, "")) === base + "/file.txt", "a file-reference URL reads as its path");
+    record(host.readLink(base + "/relative-link") === "folder", "relative link content preserved");
+    record(host.resolveAlias(base + "/folder-alias") === base + "/folder", "alias target resolution");
+    fails(function () { host.resolveAlias(base + "/broken-alias"); }, /^Cannot resolve alias target for /, "broken target reported as an error");
+    fails(function () { host.inspect(base + "/missing"); }, /^Cannot inspect ".*\(NSCocoaErrorDomain 260\)$/, "missing item reported with its domain and code");
+    fails(function () { host.validateDirectory(base + "/file.txt"); }, /^The destination is no longer a directory: /, "non-directory launch destination rejected");
+    fails(function () { host.validateDirectory(base + "/locked"); }, /^The destination directory cannot be entered: /, "a folder that cannot be entered is refused");
+    fails(function () { host.resolveAlias(base + "/volume-alias"); }, /^Cannot resolve alias target for /, "an alias to an ejected volume is refused, not remounted");
+    host.validateDirectory(base + "/folder");
+
+    const opened = [];
+    host.launch = function (path) { opened.push(path); };
+    host.chooseFolder = function () { return Path(base + "/folder"); };
+    host.chooseFolderMode = function () { return "INSIDE"; };
+    host.chooseLink = function () { return "TARGET"; };
+    function check(input, folder, link, expected, label) {
+        const previous = opened.length;
+        __TermAtTarget.execute(input, { defaultFolderAction: folder, defaultLinkAction: link }, host);
+        record(opened.length === previous + 1 && opened[previous] === expected, label);
+    }
+    const envelope = function (items) { return [items, { source: "", "temporary items path": "/tmp", ignoresInput: false }]; };
+    check([], "LEVEL", "ASK", base + "/folder", "chooser remains INSIDE under LEVEL");
+    check(envelope([Path(base + "/file.txt")]), "ASK", "ASK", base, "the Shortcuts envelope with a Path");
+    check([Path(base + "/folder")], "LEVEL", "ASK", base, "native Path folder parent");
+    check([$.NSURL.fileURLWithPath(base + "/file.txt")], "ASK", "ASK", base, "native NSURL file input");
+    check([reference], "ASK", "ASK", base, "native file-reference NSURL input");
+    check([$.NSURL.fileURLWithPath(base + "/relative-link")], "INSIDE", "TARGET", base + "/folder", "a URL for a link to a folder, slash and all");
+    check([base + "/folder-alias"], "INSIDE", "TARGET", base + "/folder", "alias TARGET directory");
+    check([base + "/file-alias"], "ASK", "TARGET", base, "alias TARGET file container");
+    check([base + "/broken-alias"], "ASK", "LINK", base, "broken alias LINK location");
+    check([base + "/broken-link"], "ASK", "LINK", base, "broken symlink own location");
+    check([base + "/relative-link"], "INSIDE", "TARGET", base + "/folder", "relative symlink TARGET");
+    check([base + "/relative-link/child.txt"], "ASK", "ASK", base + "/relative-link", "file parent may be a directory symlink without changing its spelling");
+    check([base + "/ordered-link"], "INSIDE", "TARGET", base + "/elsewhere/goal", "symlink/../goal native traversal order");
+    check([base + "/odd ' \n$`;&😀/item.txt"], "ASK", "ASK", base + "/odd ' \n$`;&😀", "hostile Unicode/newline path stays exact");
+    check(["/"], "ASK", "ASK", "/", "root opens without a folder question");
+    check([base + "/relative-link/"], "INSIDE", "LINK", base, "a slashed link to a folder still opens where the link sits");
+    check([ObjC.unwrap(reference.absoluteString)], "ASK", "ASK", base, "a file-reference URL written as text opens where it refers");
+    const count = opened.length;
+    const configured = { defaultFolderAction: "INSIDE", defaultLinkAction: "TARGET" };
+    fails(function () { __TermAtTarget.execute([base + "/file.txt", base + "/folder"], configured, host); }, /one selected item at a time/, "multiple selection rejected");
+    fails(function () { __TermAtTarget.execute([base + "/file.txt/"], configured, host); }, /ends in "\/", but it names a file/, "a path ending in / cannot name a file");
+    fails(function () { __TermAtTarget.execute([base + "/cycle"], configured, host); }, /link cycle/, "symlink cycle rejected");
+    fails(function () { __TermAtTarget.execute([base + "/link-to-file/"], configured, host); }, /ends in "\/", but it leads to a file/, "a slashed link to a file is refused");
+    fails(function () { __TermAtTarget.execute([base + "/link-to-alias/"], configured, host); }, /ends in "\/", but it leads to a file/, "a slashed link to a Finder alias is refused");
+    record(opened.length === count, "failed planning does not launch");
+    return JSON.stringify({ passed: passed, count: passed.length,
+        os: ObjC.unwrap($.NSProcessInfo.processInfo.operatingSystemVersionString) });
+}
