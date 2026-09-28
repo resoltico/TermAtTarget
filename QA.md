@@ -345,6 +345,13 @@ On 2026-09-28, macOS 27.0 (26A428) on Apple Silicon, Node 26.8.1:
   Additions, Terminal's shell at the hostile folder exactly, and both
   Shortcuts routes.
 
+- On 2026-09-28, GitHub's `macos-15` runner (macOS 15.7.9, Apple Silicon)
+  passed the gate and the native suite -- all 41 checks, the supervisor (an
+  endless helper stopped at 10.2 s), and the 29 names presented identically
+  by that engine and Node's -- in the Quality workflow and again in the
+  Release workflow for v1.0.0, which attested every asset and verified each
+  attestation before publishing.
+
 ## Interactive acceptance
 
 The native suite runs the artifact's adapters and the harness shortcuts, not
@@ -369,10 +376,10 @@ installed as `INSTALL.txt` describes:
 
 ## What has not been established
 
-- **macOS 12.3, and Intel Macs.** 12.3 is the floor the language target holds
-  the artifact to, and nothing older than macOS 27 has run it. On macOS 27
-  osascript ships for Apple Silicon only, so the Intel code path cannot run
-  here at all.
+- **macOS 12.3 to 14, and Intel Macs.** 12.3 is the floor the language target
+  holds the artifact to; macOS 15 (on CI) and 27 have run it, nothing between
+  or older. On macOS 27 osascript ships for Apple Silicon only, so the Intel
+  code path cannot run here at all.
 - **The interactive checks above.** None has been recorded.
 - **Older engines.** The emoji exception is the engine's own recommended
   set, which is its macOS's. An older macOS knows fewer emoji, and one without
@@ -384,9 +391,6 @@ installed as `INSTALL.txt` describes:
 - **Terminal's own settings.** A profile's startup command can change the
   directory after the shell starts; the suite's check is of the shell, before
   anything a profile does.
-- **The workflows.** They pass actionlint and the pinning rule, but have never
-  run on GitHub, so the release job, the attestations and the `macos-15`
-  runner are unexercised.
 - **Atomicity.** The destination is validated and then handed to Terminal by
   path; a folder renamed or replaced in between is not detected.
 

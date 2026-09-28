@@ -11,7 +11,8 @@ Source, releases and build attestation: https://github.com/resoltico/TermAtTarge
 
 macOS 12.3 or later, and Apple's Terminal. The script's syntax and built-ins
 are checked against the JavaScript engine of macOS 12.3; it has been run on
-macOS 27, on Apple Silicon, including through Shortcuts itself.
+macOS 27, including through Shortcuts itself, and on macOS 15 by CI, both on
+Apple Silicon.
 [QA.md](QA.md) says what is measured and what is not.
 
 ## Install
