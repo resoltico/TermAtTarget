@@ -280,7 +280,7 @@ run; it never reports a skip as a pass.
 Against disposable fixtures -- real Finder aliases written as bookmark files,
 relative, broken and cyclic symbolic links, a package, a folder that cannot
 be entered, and a folder named with a quote, a newline, `$`, a backtick, `;`,
-`&` and an emoji -- it runs the real adapters for 41 checks: classification of
+`&` and an emoji -- it runs the real adapters for 48 checks: classification of
 each kind; the package question, and its answer when macOS cannot give one;
 alias resolution, and a broken target reported as that; Path, NSString,
 NSURL, file-reference URL and Shortcuts-envelope input; a URL for a link to a
@@ -332,6 +332,19 @@ first), requires the match to be exact, and closes the window by ending that
 shell.
 
 ## What has been measured on this Mac
+
+For 1.0.1, on 2026-10-06, macOS 27.0 (26A428), Apple Silicon, Node 26.8.1:
+
+- `npm run quality` passed: 465 tests, 100% coverage, mutation score 100,
+  and the committed artifact matching the source.
+- `node tests/integration/macos.mjs --dialogs --terminal --shortcuts` passed:
+  all 48 native checks, the supervisor and presentation checks, both dialogs,
+  Terminal's exact working directory, and both Shortcuts input routes.
+- A file-reference URL with an encoded slash opened a different filename
+  under 1.0.0; the same native reproduction under 1.0.1 refused it without
+  a launch request. The Terminal check's decoder was also verified against
+  both literal emoji and escaped UTF-8 from `lsof`.
+
 
 On 2026-09-28, macOS 27.0 (26A428) on Apple Silicon, Node 26.8.1:
 

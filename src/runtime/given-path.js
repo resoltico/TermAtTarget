@@ -1,5 +1,6 @@
 "use strict";
 
+const { absolutePath } = require("../core/paths.js");
 const { isNil } = require("./bridge.js");
 
 /*
@@ -39,6 +40,9 @@ function nativeURLText(objc, url) {
     if (!url.isFileURL) {
         throw new Error("Only local file URLs are accepted.");
     }
+
+    // Foundation may repair malformed escapes while resolving a reference.
+    absolutePath(String(objc.unwrap(url.absoluteString)));
 
     const pathURL = url.isFileReferenceURL ? url.filePathURL : url;
 
@@ -89,6 +93,8 @@ function referenceResolved(bridge, text) {
     if (!REFERENCE_TEXT.test(text)) {
         return text;
     }
+
+    absolutePath(text);
 
     const url = bridge.ns.NSURL.URLWithString(text);
 

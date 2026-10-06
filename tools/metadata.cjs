@@ -12,4 +12,4 @@
 
 const pkg = require("../package.json");
 
-module.exports = { ...pkg.termAtTarget, version: pkg.version, license: pkg.license };
+module.exports = { ...pkg.termAtTarget, version: pkg.version, license: pkg.license, copyright: pkg.copyright };

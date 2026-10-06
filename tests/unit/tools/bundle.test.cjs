@@ -34,7 +34,10 @@ test("the artifact opens with its name, version and the whole licence", async ()
     const artifact = await renderRelease();
 
     assert.match(artifact, /^\/\*\nTerm At Target \d+\.\d+\.\d+\n/u);
-    assert.match(artifact, /Permission is hereby granted/u);
+    assert.match(artifact, /SPDX-License-Identifier: MPL-2.0/u);
+    assert.match(artifact, /Copyright \(c\) 2026 Ervins Strauhmanis/u);
+    assert.ok(artifact.includes(`Source Code Form: https://github.com/resoltico/TermAtTarget/tree/v${require("../../../package.json").version}`));
+    assert.match(artifact, /Mozilla Public License Version 2.0/u);
 });
 
 test("the configuration is inlined where a pasted copy can edit it", async () => {

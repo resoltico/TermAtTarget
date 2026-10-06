@@ -73,6 +73,14 @@ function run(argv) {
     const reference = $.NSURL.fileURLWithPath(base + "/file.txt").fileReferenceURL;
     record(/^file:\/\/\/\.file\/id=/.test(ObjC.unwrap(reference.absoluteString)), "a file-reference URL fixture is one");
     record(decodeURIComponent(host.pathOf(reference).replace(/^file:\/\//, "")) === base + "/file.txt", "a file-reference URL reads as its path");
+    for (const suffix of ["/%ZZ", "/%2f", "/%2F", "/%FF"]) {
+        const text = ObjC.unwrap(reference.absoluteString) + suffix;
+        fails(function () { host.pathOf(text); }, /invalid percent-encoding|encoded path separator/, "invalid textual reference " + suffix);
+    }
+    for (const suffix of ["/%2f", "/%2F", "/%FF"]) {
+        const nativeURL = $.NSURL.URLWithString(ObjC.unwrap(reference.absoluteString) + suffix);
+        fails(function () { host.pathOf(nativeURL); }, /invalid percent-encoding|encoded path separator/, "invalid native reference " + suffix);
+    }
     record(host.readLink(base + "/relative-link") === "folder", "relative link content preserved");
     record(host.resolveAlias(base + "/folder-alias") === base + "/folder", "alias target resolution");
     fails(function () { host.resolveAlias(base + "/broken-alias"); }, /^Cannot resolve alias target for /, "broken target reported as an error");

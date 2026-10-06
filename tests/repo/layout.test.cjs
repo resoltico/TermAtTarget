@@ -19,7 +19,7 @@ test("the package declares no runtime dependency at all", () => {
     // The artifact is one self-contained script: nothing is installed at run
     // time, so there is nothing for the package to depend on.
     assert.equal(pkg.dependencies, undefined);
-    assert.equal(pkg.license, "MIT");
+    assert.equal(pkg.license, "MPL-2.0");
 });
 
 test("the development toolchain is pinned exactly, and the lockfile agrees", async () => {

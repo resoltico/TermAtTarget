@@ -183,4 +183,4 @@ compatibility claim.
 [SECURITY.md](SECURITY.md) describes boundaries. [QA.md](QA.md) records what is
 known to hold, how it was measured, and what has not been established.
 
-MIT licensed. Copyright (c) 2026 Ervins Strauhmanis.
+Licensed under the Mozilla Public License 2.0; see [LICENSE](LICENSE). Copyright (c) 2026 Ervins Strauhmanis.

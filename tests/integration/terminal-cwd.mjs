@@ -12,7 +12,7 @@ import { setTimeout as sleep } from "node:timers/promises";
  * comparison is exact rather than a prefix match.
  */
 
-function decodeLsofName(name) {
+export function decodeLsofName(name) {
     const bytes = [];
 
     for (let index = 0; index < name.length; index += 1) {
@@ -22,7 +22,9 @@ function decodeLsofName(name) {
             bytes.push(parseInt(escape.groups.hex, 16));
             index += 3;
         } else {
-            bytes.push(...Buffer.from(name[index], "utf8"));
+            const character = String.fromCodePoint(name.codePointAt(index));
+            bytes.push(...Buffer.from(character, "utf8"));
+            index += character.length - 1;
         }
     }
 

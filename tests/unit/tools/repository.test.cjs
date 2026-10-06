@@ -69,10 +69,10 @@ test("anything that is neither file, folder nor link is refused", async () => {
 test("metadata is the package's own section, with its version and licence", async () => {
     const { metadata } = await load();
     const base = await tree({
-        "package.json": JSON.stringify({ version: "1.2.3-rc.1", license: "MIT", termAtTarget: { title: "T" } })
+        "package.json": JSON.stringify({ version: "1.2.3-rc.1", license: "MIT", copyright: "Owner", termAtTarget: { title: "T" } })
     });
 
-    assert.deepEqual(await metadata(base), { title: "T", version: "1.2.3-rc.1", license: "MIT" });
+    assert.deepEqual(await metadata(base), { title: "T", version: "1.2.3-rc.1", license: "MIT", copyright: "Owner" });
 });
 
 test("a version that is not a release version is refused", async () => {

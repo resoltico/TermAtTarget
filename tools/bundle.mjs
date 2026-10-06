@@ -49,6 +49,8 @@ function headerFor(meta, license) {
         "Generated from src/. Edit config.json and rebuild for source-controlled changes.\n" +
         "For a personal pasted copy only, edit TERM_AT_TARGET_CONFIG below.\n" +
         "Native macOS verification status is recorded in QA.md. No Node runtime required.\n\n" +
+        `Copyright (c) ${meta.copyright}\nSPDX-License-Identifier: MPL-2.0\n` +
+        `Source Code Form: https://github.com/resoltico/TermAtTarget/tree/v${meta.version}\n\n` +
         `${license.trimEnd()}\n*/\n\n`;
 }
 

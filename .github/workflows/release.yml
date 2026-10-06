@@ -43,6 +43,7 @@ jobs:
           path: |
             dist/
             INSTALL.txt
+            LICENSE
             artifacts/
             reports/native-macos.json
           if-no-files-found: error
@@ -79,11 +80,12 @@ jobs:
           subject-path: |
             release-files/dist/*
             release-files/INSTALL.txt
+            release-files/LICENSE
             release-files/artifacts/*
             release-files/reports/native-macos.json
       - name: Verify attestations and the tag target
         run: |
-          for subject in release-files/dist/* release-files/INSTALL.txt release-files/artifacts/* release-files/reports/native-macos.json; do
+          for subject in release-files/dist/* release-files/INSTALL.txt release-files/LICENSE release-files/artifacts/* release-files/reports/native-macos.json; do
             gh attestation verify "$subject" --repo "$GITHUB_REPOSITORY"
           done
           current=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)
@@ -95,6 +97,7 @@ jobs:
             release-files/dist/Term-At-Target.jxa \
             release-files/dist/SHA256SUMS \
             release-files/INSTALL.txt \
+            release-files/LICENSE \
             release-files/artifacts/*.tar.gz \
             release-files/artifacts/*.sha256 \
             release-files/reports/native-macos.json \

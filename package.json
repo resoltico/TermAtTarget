@@ -1,9 +1,9 @@
 {
   "name": "term-at-target-macos",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "A dependency-free JXA Shortcuts action that opens Terminal at a deliberate filesystem location",
-  "license": "MIT",
+  "license": "MPL-2.0",
   "author": "Ervins Strauhmanis",
   "homepage": "https://github.com/resoltico/TermAtTarget",
   "repository": {
@@ -42,5 +42,6 @@
     "acorn": "8.18.0",
     "eslint": "10.11.0",
     "fast-check": "4.10.2"
-  }
+  },
+  "copyright": "2026 Ervins Strauhmanis"
 }
