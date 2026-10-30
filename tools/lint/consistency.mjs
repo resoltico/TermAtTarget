@@ -78,6 +78,17 @@ export async function checkPackageName(read = readFromDisk) {
     ]);
 }
 
+// npm writes the lockfile: CI installs the npm `packageManager` names, and
+// `engines` (with engine-strict) refuses an older one locally. They agree.
+export async function checkNpmVersion(read = readFromDisk) {
+    const packageJson = await readJson(read, "package.json");
+
+    return assertAll("npm versions", [
+        extract(String(packageJson.packageManager), /^npm@(?<value>\d+\.\d+\.\d+)$/u, "package.json packageManager"),
+        extract(String(packageJson.engines.npm), /^>=(?<value>\d+\.\d+\.\d+)$/u, "package.json engines.npm")
+    ]);
+}
+
 export async function checkNodeVersion(read = readFromDisk) {
     const packageJson = await readJson(read, "package.json");
 
@@ -128,11 +139,12 @@ export async function checkConsistency(read = readFromDisk) {
     const version = await checkVersion(read);
     const name = await checkPackageName(read);
     const node = await checkNodeVersion(read);
+    const npm = await checkNpmVersion(read);
     const language = await checkLanguageYear(read);
     const url = await checkRepositoryUrl(read);
 
     // The version the files agree on has release notes, dated, to publish.
     extractNotes(await read("CHANGELOG.md"), version);
 
-    return `${name} ${version}, node ${node}, ES${language}, ${url}`;
+    return `${name} ${version}, node ${node}, npm ${npm}, ES${language}, ${url}`;
 }

@@ -63,24 +63,37 @@ test("tools and tests may use Node, which is where they run", async () => {
     assert.doesNotThrow(() => checkBoundaries("tests/unit/a.test.cjs", "Buffer.from('x');\n"));
 });
 
-test("the core may not name anything native", async () => {
+test("the core may not use anything JXA puts in scope to reach macOS", async () => {
     const { checkBoundaries } = await load();
 
-    for (const name of ["ObjC", "Application", "NSTask", "NSFileManager", "Ref"]) {
-        assert.throws(
-            () => checkBoundaries("src/core/plan.js", `const x = ${name};\n`),
-            new RegExp(`^Error: src/core/plan\\.js: names ${name}; the core is portable, ` +
-                "and everything that touches macOS belongs in src/runtime/$", "u"),
-            name
-        );
+    for (const [code, name] of [["ObjC.import(\"x\");", "ObjC"], ["Application(\"Finder\");", "Application"], ["$.NSTask;", "$"],
+        ["const r = Ref();", "Ref"], ["new Path(p);", "Path"], ["Progress.totalUnitCount = 1;", "Progress"], ["globalThis.x;", "globalThis"],
+        ["f(Library);", "Library"], ["const a = { k: $ };", "$"], ["o[Ref];", "Ref"]]) {
+        assert.throws(() => checkBoundaries("src/core/plan.js", `${code}\n`), (error) => {
+            assert.equal(error.message, `src/core/plan.js: uses ${name}; the core is portable, and everything that touches macOS ` +
+                "belongs in src/runtime/", code);
+
+            return true;
+        });
     }
 });
 
-test("the runtime may, and a name that contains one is not one", async () => {
+test("words, strings, comments and property names are not uses", async () => {
+    // Parsed, not matched: the core may say "ObjC" in prose, or have a `path` key.
     const { checkBoundaries } = await load();
 
-    assert.doesNotThrow(() => checkBoundaries("src/runtime/host.js", "ObjC.import('x'); $.NSTask;\n"));
-    assert.doesNotThrow(() => checkBoundaries("src/core/plan.js", "const Reference = 1; const NSTasks = 2;\n"));
+    for (const code of [
+        "// ObjC and Application are the runtime's", "const s = \"Ref $\";", "const o = { Path: 1, Application: 2 };",
+        "x.Path; y.ObjC; z.Progress;", "const Reference = 1; const NSTasks = 2;", "function f(paths) { return paths; }"
+    ]) {
+        assert.doesNotThrow(() => checkBoundaries("src/core/plan.js", `${code}\n`), code);
+    }
+});
+
+test("the runtime may use them", async () => {
+    const { checkBoundaries } = await load();
+
+    assert.doesNotThrow(() => checkBoundaries("src/runtime/host.js", "ObjC.import('x'); $.NSTask; Application.currentApplication();\n"));
 });
 
 test("a shipped module may not write to disk, by any of the ways Foundation or libc offer", async () => {

@@ -29,6 +29,7 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: brew install actionlint
+      - run: npm install --global "$(node --print 'require("./package.json").packageManager')"
       - run: npm ci --ignore-scripts
       - run: node tools/release-notes.mjs "$RELEASE_TAG" > "$RUNNER_TEMP/release-notes.md"
       - run: npm run quality

@@ -23,10 +23,11 @@ to fail, and `tests/repo/gate.test.cjs` applies it to the real tree.
 | --- | --- |
 | `discovery.mjs` | Every JavaScript file is found by walking, not listed, so a new file cannot escape the gate. `.jxa` counts. |
 | `source-rules.mjs` | Node parses each file; no literal control character, and nothing invisible or that moves text -- by Unicode property: separators, unusual whitespace, every default-ignorable code point -- which must be written as escapes; no trailing whitespace, CR or missing final newline; no file over 150 lines. |
-| `boundary-rules.mjs` | `src/` uses no `eval`, `new Function`, dynamic import, `fetch`, `process` or `Buffer`, calls nothing that writes a file (mkdir, unlink, `writeToFile…`, `removeItemAt…`, `fileHandleForWriting` and the rest), and names NSUserDefaults only in `src/runtime/preferences.js`; `src/core/` names nothing native. |
+| `boundary-rules.mjs` | `src/` uses no `eval`, `new Function`, dynamic import, `fetch`, `process` or `Buffer`, calls nothing that writes a file (mkdir, unlink, `writeToFile…`, `removeItemAt…`, `fileHandleForWriting` and the rest), and names NSUserDefaults only in `src/runtime/preferences.js`; `src/core/`, parsed, uses none of the names JXA puts in scope to reach macOS (`ObjC`, `$`, `Application`, `Ref`, `Path`, `Progress`, `Library`, `globalThis`) -- a comment, a string or a property of the same name is not a use. |
+| `settings-docs.mjs` | README's settings table and INSTALL.txt's Settings section name every setting and value in the settings screen's own words, and every terminal app by name. |
 | `source-rules.mjs` | Every absolute executable path under `src/` is in `src/runtime/executables.js` and nowhere else. |
 | `language-target.mjs` | The rendered artifact parses as an ES2022 script, and uses no built-in newer than macOS 12.3. |
-| `consistency.mjs` | Version, package name, Node pin, language year and repository URL agree in every file that states them, and the version has dated release notes. |
+| `consistency.mjs` | Version, package name, Node pin, npm pin, language year and repository URL agree in every file that states them, and the version has dated release notes. |
 | `toolchain.mjs` | The `brew install` line is the same in `CONTRIBUTING.md` and both workflows, and installs actionlint. |
 | `workflow-rules.mjs` | Every action is pinned to a full commit SHA; actionlint passes when installed. |
 | `ignore-rules.mjs` | `.gitignore` covers what the toolchain writes, and never covers `dist/`. |
@@ -61,8 +62,8 @@ the first kind means anything under mutation, where the tree is deliberately
 altered, so only `tests/unit/` runs in the campaign.
 
 StrykerJS mutates `src/` with the tap runner and per-test coverage. The score
-at the last run was 100: all 1,321 mutants were detected, and two did not
-compile and are not counted. Twenty-three were detected by timing out; each
+at the last run was 100: all 1,322 mutants were detected, and one did not
+compile and is not counted. Twenty-three were detected by timing out; each
 takes away what stops a loop -- the link budget, a walk's own step, a search's
 bounds, or the supervisor's check of its clock -- so the loop never ends where
 the tests expect it to. The build breaks below 98.
@@ -103,13 +104,22 @@ The properties also pass at 20,000 cases for each of three seeds.
 
 ## The artifact
 
-`dist/Term-At-Target.jxa` is rendered by `tools/bundle.mjs`: each module in
-`tools/module-order.mjs` becomes a scoped factory, the requires between them a
-declared graph, and a small loader serves only what the graph declares. The
-graph is checked before anything is written (`tools/module-graph.mjs`): a
-require must be a literal string naming a listed local module, the core may
-not reach the host, and there are no cycles. The tree under `src/` and the
-manifest must name the same modules. Nothing is embedded beyond the modules:
+`dist/Term-At-Target.jxa` is rendered by `tools/bundle.mjs` with esbuild
+(pinned exactly), as an IIFE for `safari15.4` -- the JavaScriptCore of macOS
+12.3 -- with whitespace and comments removed and names kept, so an error from
+the field still names its function. The graph is checked before anything is
+built (`tools/module-graph.mjs`), over every module found under `src/`: a
+require must be a literal relative path to one of them, the core may not reach
+the host, and there are no cycles. After the build, esbuild's own record of
+its inputs must hold every module under `src/`, so one nothing reaches cannot
+pass every check and never ship.
+
+The header is MPL's per-file notice, the source address for the version and
+the macOS floor; the full licence ships as the release's `LICENSE`. The only
+other comment is the Unicode data notice, written by the generator as a
+`/*! ... */` comment, which the build keeps, at the end of the file. The
+artifact is about 49 KB, from 107 KB with the whole licence and comments.
+Nothing is embedded beyond the modules:
 the artifact carries no settings, so every installed copy is the released file
 byte for byte, and its checksum and attestation verify on the copy a person
 pasted.

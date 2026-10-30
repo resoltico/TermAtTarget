@@ -52,12 +52,18 @@ export function targetOf(meta) {
     return { year: Number(declared.groups.year), macOS: meta.minimumMacOS };
 }
 
+// The artifact is minified, so `static {` arrives as `static{`: tokens are
+// compared with whitespace removed from both sides.
+const compact = (text) => text.replace(/\s+/gu, "");
+
 export function findLateFeatures(release, features = LATE_FEATURES) {
     if (features.length === 0) {
         throw new Error("the language target has no features left to reject");
     }
 
-    return features.filter(([token]) => release.includes(token));
+    const code = compact(release);
+
+    return features.filter(([token]) => code.includes(compact(token)));
 }
 
 export function checkSyntax(release, target) {

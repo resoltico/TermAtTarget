@@ -50,3 +50,9 @@ test("the committed Unicode tables are what the vendored data generates", async 
 
     assert.equal(await checkUnicodeTables(), "Unicode tables current");
 });
+
+test("the documents list every setting and value in the settings screen's words", async () => {
+    const { checkSettingsDocs } = await import("../../tools/lint/settings-docs.mjs");
+
+    assert.equal(await checkSettingsDocs(), 3);
+});

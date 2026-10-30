@@ -68,7 +68,7 @@ test("checkConsistency summarises every fact it agreed", async () => {
 
     assert.equal(
         await checkConsistency(fakeRepo()),
-        "project 1.2.3, node 26.8.1, ES2022, https://github.com/someone/Project"
+        "project 1.2.3, node 26.8.1, npm 12.2.1, ES2022, https://github.com/someone/Project"
     );
 });
 

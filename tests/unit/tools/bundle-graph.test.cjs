@@ -1,8 +1,9 @@
 "use strict";
 
 /*
- * What a module may require, and the graph those requires make: only listed
- * local modules, nothing from the core into the host, and no cycles.
+ * What a module may require, and the graph those requires make: only literal
+ * requires of modules under src/, nothing from the core into the host, and no
+ * cycles.
  */
 
 const assert = require("node:assert/strict");
@@ -10,11 +11,15 @@ const test = require("node:test");
 
 const load = () => import("../../../tools/module-graph.mjs");
 
+// The modules found under src/, as the bundler hands them over.
+const MODULES = ["src/core/paths.js", "src/core/plan.js", "src/core/errors.js", "src/runtime/bridge.js", "src/runtime/links.js",
+    "src/runtime/host.js", "src/runtime/entry.js"];
+
 test("a local require resolves to the listed module it names, however it is quoted", async () => {
     const { dependencies } = await load();
     const source = "const a = require(\"../core/paths.js\");\nconst b = require( './bridge.js' );";
 
-    assert.deepEqual(dependencies(source, "src/runtime/links.js"), {
+    assert.deepEqual(dependencies(source, "src/runtime/links.js", MODULES), {
         "../core/paths.js": "src/core/paths.js",
         "./bridge.js": "src/runtime/bridge.js"
     });
@@ -25,7 +30,7 @@ test("nothing is embedded: a specifier that is not a relative path is refused, e
 
     for (const specifier of ["#config", "#metadata"]) {
         assert.throws(
-            () => dependencies(`require("${specifier}")`, "src/runtime/entry.js"),
+            () => dependencies(`require("${specifier}")`, "src/runtime/entry.js", MODULES),
             new RegExp(`^Error: External runtime dependency in src/runtime/entry\\.js: ${specifier}$`, "u")
         );
     }
@@ -34,7 +39,7 @@ test("nothing is embedded: a specifier that is not a relative path is refused, e
 test("a module that requires nothing has no dependencies", async () => {
     const { dependencies } = await load();
 
-    assert.deepEqual(dependencies("\"use strict\";\n", "src/core/errors.js"), {});
+    assert.deepEqual(dependencies("\"use strict\";\n", "src/core/errors.js", MODULES), {});
 });
 
 test("a require that is not a literal string is refused", async () => {
@@ -42,7 +47,7 @@ test("a require that is not a literal string is refused", async () => {
 
     for (const source of ["require(name)", "require(`./a.js`)", "require (\"./paths.js\" + x)"]) {
         assert.throws(
-            () => dependencies(source, "src/core/plan.js"),
+            () => dependencies(source, "src/core/plan.js", MODULES),
             /^Error: Only literal local module imports are allowed: src\/core\/plan\.js$/u,
             source
         );
@@ -54,30 +59,30 @@ test("a package or a built-in is refused, since nothing is installed on the Mac"
 
     for (const specifier of ["node:fs", "fast-check", "/abs.js"]) {
         assert.throws(
-            () => dependencies(`require("${specifier}")`, "src/core/plan.js"),
+            () => dependencies(`require("${specifier}")`, "src/core/plan.js", MODULES),
             new RegExp(`^Error: External runtime dependency in src/core/plan\\.js: ${specifier}$`, "u")
         );
     }
 });
 
-test("a module the manifest does not list is refused", async () => {
+test("a module that is not under src/ is refused", async () => {
     const { dependencies } = await load();
 
     assert.throws(
-        () => dependencies("require(\"./missing.js\")", "src/core/plan.js"),
-        /^Error: Unlisted module dependency in src\/core\/plan\.js: src\/core\/missing\.js$/u
+        () => dependencies("require(\"./missing.js\")", "src/core/plan.js", MODULES),
+        /^Error: Unknown module dependency in src\/core\/plan\.js: src\/core\/missing\.js$/u
     );
-    assert.throws(() => dependencies("require(\"../../outside.js\")", "src/core/plan.js"), /Unlisted module/u);
+    assert.throws(() => dependencies("require(\"../../outside.js\")", "src/core/plan.js", MODULES), /Unknown module/u);
 });
 
 test("the core may not reach the host", async () => {
     const { dependencies } = await load();
 
     assert.throws(
-        () => dependencies("require(\"../runtime/host.js\")", "src/core/plan.js"),
+        () => dependencies("require(\"../runtime/host.js\")", "src/core/plan.js", MODULES),
         /^Error: The portable core may not import a host adapter\.$/u
     );
-    assert.deepEqual(dependencies("require(\"../core/paths.js\")", "src/runtime/links.js"),
+    assert.deepEqual(dependencies("require(\"../core/paths.js\")", "src/runtime/links.js", MODULES),
         { "../core/paths.js": "src/core/paths.js" }, "the host may reach the core");
 });
 

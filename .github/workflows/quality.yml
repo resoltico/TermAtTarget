@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # actionlint and GitHub's macOS image are not pinned, so a change in either
+  # -- osascript's behaviour among them -- surfaces as a failing job. That only
+  # holds if something runs when nobody has pushed.
+  schedule:
+    - cron: "23 5 * * 1"
 
 permissions:
   contents: read
@@ -25,6 +30,7 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
+      - run: npm install --global "$(node --print 'require("./package.json").packageManager')"
       - run: npm ci --ignore-scripts
       # Verification, not build-first: committed dist must already match src.
       - run: npm run quality
@@ -54,6 +60,7 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: brew install actionlint
+      - run: npm install --global "$(node --print 'require("./package.json").packageManager')"
       - run: npm ci --ignore-scripts
       - run: npm run quality
       - run: npm run test:integration:macos

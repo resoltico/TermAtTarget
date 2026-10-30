@@ -13,6 +13,7 @@ import { checkToolchain } from "./lint/toolchain.mjs";
 import { checkIgnores } from "./lint/ignore-rules.mjs";
 import { checkDocumentReferences } from "./lint/document-references.mjs";
 import { checkUnicodeTables } from "./lint/unicode-tables.mjs";
+import { checkSettingsDocs } from "./lint/settings-docs.mjs";
 
 const files = await lintableFiles();
 
@@ -27,9 +28,10 @@ const toolchain = await checkToolchain();
 const ignored = await checkIgnores();
 const documents = await checkDocumentReferences();
 const unicode = await checkUnicodeTables();
+const settings = await checkSettingsDocs();
 
 console.log(
     `syntax and static policy checks passed for ${files.length} files ` +
     `(${workflowStatus}; language target: ${languageTarget}; ${consistency}; ` +
-    `brew install ${toolchain}; ${ignored} ignore rules, ${documents} documents; ${unicode})`
+    `brew install ${toolchain}; ${ignored} ignore rules, ${documents} documents, ${settings} settings documented; ${unicode})`
 );

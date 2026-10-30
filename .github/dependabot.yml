@@ -14,10 +14,10 @@ updates:
       - dependencies
 
   # The artifact has no runtime dependencies -- it is one file that runs only
-  # what macOS ships -- so everything here is a build or gate tool: eslint,
-  # stryker, fast-check and acorn. Each is pinned exactly, and a change to any
-  # of them changes what the gate accepts, which is worth a pull request rather
-  # than a surprise.
+  # what macOS ships -- so everything here is a build or gate tool: esbuild,
+  # eslint, stryker, fast-check and acorn. Each is pinned exactly, and a change
+  # to any of them changes what the gate accepts or what the build emits, which
+  # is worth a pull request rather than a surprise.
   - package-ecosystem: npm
     directory: /
     schedule:

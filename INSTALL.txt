@@ -94,6 +94,6 @@ License
 ========
 
 Mozilla Public License 2.0. Copyright (c) 2026 Ervins Strauhmanis.
-The license is included in LICENSE and in the script header.
+The license is included in LICENSE; the script's header carries its notice.
 The matching source is at https://github.com/resoltico/TermAtTarget/tree/v2.0.0
 and in the source archive provided with this release.

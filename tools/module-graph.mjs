@@ -1,19 +1,22 @@
 import path from "node:path";
-import { modules } from "./module-order.mjs";
 
 /*
- * What each module requires, and whether those requires make a graph the
- * loader can serve: only listed local modules, nothing from the portable core
- * into the host, and no cycles.
+ * What each source module requires, and whether those requires make a sound
+ * graph: only literal requires of modules under src/, nothing from the
+ * portable core into the runtime, and no cycles. esbuild would bundle a
+ * require of anything it can resolve, and a cycle without complaint, so these
+ * rules are checked here, against the modules found under src/, before
+ * anything is built.
  */
 
 const REQUIRE_CALL = /\brequire\s*\(/gu;
 const LITERAL_REQUIRE = /\brequire\s*\(\s*(?<quote>["'])(?<specifier>[^"']+)\k<quote>\s*\)/gu;
+
 function isCore(id) {
     return id.startsWith("src/core/");
 }
 
-function local(specifier, id) {
+function local(specifier, id, modules) {
     if (!specifier.startsWith("./") && !specifier.startsWith("../")) {
         throw new Error(`External runtime dependency in ${id}: ${specifier}`);
     }
@@ -21,7 +24,7 @@ function local(specifier, id) {
     const target = path.posix.normalize(path.posix.join(path.posix.dirname(id), specifier));
 
     if (!modules.includes(target)) {
-        throw new Error(`Unlisted module dependency in ${id}: ${target}`);
+        throw new Error(`Unknown module dependency in ${id}: ${target}`);
     }
 
     if (isCore(id) && !isCore(target)) {
@@ -32,15 +35,14 @@ function local(specifier, id) {
 }
 
 // Each specifier a module requires, and the module it names.
-export function dependencies(source, id) {
+export function dependencies(source, id, modules) {
     const literal = [...source.matchAll(LITERAL_REQUIRE)];
 
     if ([...source.matchAll(REQUIRE_CALL)].length !== literal.length) {
         throw new Error(`Only literal local module imports are allowed: ${id}`);
     }
 
-    return Object.fromEntries(literal.map(({ groups: { specifier } }) =>
-        [specifier, local(specifier, id)]));
+    return Object.fromEntries(literal.map(({ groups: { specifier } }) => [specifier, local(specifier, id, modules)]));
 }
 
 export function verifyGraph(graph) {
