@@ -6,12 +6,20 @@
  * Every call is recorded in order, so a test can assert what was asked and
  * when as well as what came back. Any method can be replaced to inject an
  * answer or a failure; the rest keep behaving like a small, consistent
- * filesystem with a /work folder in it.
+ * filesystem with a /work folder in it, a person who gives the usual answer,
+ * and a Mac with every terminal app installed and the settings given saved.
  */
+
+const NOTHING_SAVED = Object.freeze({ terminal: null, folder: null, link: null });
+const DEFAULTS = Object.freeze({ terminal: "terminal", folder: "ask", link: "ask" });
 
 // The filesystem half: what an item is, and where a link or alias points.
 function filesystem(items, record) {
     return {
+        pathOf(value) {
+            record("path", value);
+            return String(value);
+        },
         inspect(path) {
             record("inspect", path);
 
@@ -39,44 +47,80 @@ function filesystem(items, record) {
     };
 }
 
-// The person's half: the questions, each answered the first way it offers.
+// The person's half: the questions, each answered the usual way.
 function person(record) {
     return {
+        start(setup) {
+            record("start", setup);
+            return "choose";
+        },
         chooseFolder() {
             record("chooseFolder");
             return "/work";
         },
         chooseLink(path, kind) {
             record("chooseLink", path, kind);
-            return "TARGET";
+            return "follow";
         },
         chooseFolderMode(path, via) {
             record("chooseFolderMode", path, via);
-            return "INSIDE";
+            return "inside";
+        },
+        pickSetting(rows) {
+            record("pickSetting", rows);
+            return null;
+        },
+        pickValue(key, values, current) {
+            record("pickValue", key, values, current);
+            return null;
         }
     };
 }
 
-function fixture(entries = {}, overrides = {}) {
+// The Mac's half: the settings saved, as given, and the terminal apps.
+function mac(record, saved) {
+    return {
+        load() {
+            record("load");
+            return { ...NOTHING_SAVED, ...saved };
+        },
+        save(key, value) {
+            record("save", key, value);
+        },
+        isInstalled(id) {
+            record("installed", id);
+            return true;
+        },
+        launch(id, path) {
+            record("launch", path, id);
+        }
+    };
+}
+
+function fixture(entries = {}, overrides = {}, saved = {}) {
     const events = [];
     const items = { "/": { kind: "directory" }, "/work": { kind: "directory" }, ...entries };
     const record = (...event) => {
         events.push(event);
     };
 
+    return { events, items, ...filesystem(items, record), ...person(record), ...mac(record, saved), ...overrides };
+}
+
+// The host the workflow is given, every port answered by the one fixture. The
+// name each set of questions was made for is kept apart from the calls.
+function hostFor(io) {
+    io.namedFor = [];
+
     return {
-        events,
-        items,
-        pathOf(value) {
-            record("path", value);
-            return String(value);
+        files: io,
+        preferences: io,
+        terminals: io,
+        questions(name) {
+            io.namedFor.push(name);
+            return io;
         },
-        ...filesystem(items, record),
-        ...person(record),
-        launch(path) {
-            record("launch", path);
-        },
-        ...overrides
+        settingsScreen: io
     };
 }
 
@@ -85,6 +129,4 @@ function calls(io) {
     return io.events.map(([name]) => name);
 }
 
-const DEFAULTS = Object.freeze({ defaultFolderAction: "ASK", defaultLinkAction: "ASK" });
-
-module.exports = { fixture, calls, DEFAULTS };
+module.exports = { fixture, hostFor, calls, NOTHING_SAVED, DEFAULTS };

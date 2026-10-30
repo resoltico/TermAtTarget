@@ -21,6 +21,14 @@ import { root } from "../repository.mjs";
  */
 
 const REFERENCE = /`(?<path>[\w.-]+\/[\w./-]+)`/gu;
+
+/*
+ * AGENTS.md is a baseline shared across repositories, quoted unchanged. Its
+ * backticked names (`api/v2`) are examples of naming, not files here, so its
+ * references are not this repository's to resolve. It is still held to the
+ * hygiene every document is.
+ */
+const SHARED_BASELINES = new Set(["AGENTS.md"]);
 const NAMES_SOMETHING = /[a-z]/iu;
 const ELLIPSIS = "...";
 const PARENT = "..";
@@ -47,6 +55,10 @@ export async function missingReferences(documents, resolve = exists) {
     const named = new Map();
 
     documents.files.forEach((file, index) => {
+        if (SHARED_BASELINES.has(file)) {
+            return;
+        }
+
         for (const reference of referencesIn(documents.texts[index])) {
             named.set(reference.replace(/\/$/u, ""), file);
         }

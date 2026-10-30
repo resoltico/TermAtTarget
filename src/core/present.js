@@ -77,9 +77,30 @@ function presentPath(path) {
     return present(path, path.split("/"));
 }
 
+/*
+ * A folder inside the person's home folder, written from "~" -- shorter to
+ * read, and never the same text as another folder, since every other path
+ * shown begins with "/" or a quote. Null when it is not inside it. A home that
+ * is missing or not absolute matches no absolute path; a home at the root
+ * would match every one, so it is not used.
+ */
+function fromHome(path, home) {
+    if (home === "/") {
+        return null;
+    }
+
+    if (path === home) {
+        return "~";
+    }
+
+    return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : null;
+}
+
 // A folder's name and the folder it is in, each ready to show.
-function presentLocation(path) {
-    return { name: presentName(path.slice(path.lastIndexOf("/") + 1)), parent: presentPath(parentPath(path)) };
+function presentLocation(path, home = null) {
+    const parent = parentPath(path);
+
+    return { name: presentName(path.slice(path.lastIndexOf("/") + 1)), parent: presentPath(fromHome(parent, home) ?? parent) };
 }
 
 module.exports = { presentName, presentPath, presentLocation };

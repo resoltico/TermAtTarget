@@ -8,7 +8,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const vm = require("node:vm");
-const { fixture, calls } = require("../../helpers.cjs");
+const { fixture, hostFor, calls } = require("../../helpers.cjs");
 
 const load = () => import("../../../tools/bundle.mjs");
 // The global the artifact defines, which a native harness reaches into.
@@ -40,10 +40,14 @@ test("the artifact opens with its name, version and the whole licence", async ()
     assert.match(artifact, /Mozilla Public License Version 2.0/u);
 });
 
-test("the configuration is inlined where a pasted copy can edit it", async () => {
+test("nothing in it is meant to be edited: there is no configuration to inline", async () => {
+    // Settings are saved by the action itself, so every installed copy is
+    // byte-identical to the release and its checksum always verifies.
     const { renderRelease } = await load();
+    const artifact = await renderRelease();
 
-    assert.match(await renderRelease(), /\nvar TERM_AT_TARGET_CONFIG = \{\n {4}"defaultFolderAction": "[A-Z]+",\n/u);
+    assert.match(artifact, /\nGenerated from src\/; do not edit\. Settings are changed by running it with nothing selected\.\n/u);
+    assert.doesNotMatch(artifact, /CONFIG|#config|#metadata/u);
 });
 
 test("loading it needs no Node and no macOS, and declares run() for osascript", async () => {
@@ -59,13 +63,14 @@ test("loading it needs no Node and no macOS, and declares run() for osascript", 
 test("the loaded artifact makes the same decisions the source does", async () => {
     const context = await loaded();
 
-    for (const [folder, expected] of [["ASK", "/work"], ["INSIDE", "/work"], ["LEVEL", "/"]]) {
-        const io = fixture({ "/work/a": { kind: "alias", target: "/work" } });
-        const config = { defaultFolderAction: folder, defaultLinkAction: "TARGET" };
+    for (const [folder, expected] of [[null, "/work"], ["inside", "/work"], ["parent", "/"]]) {
+        const io = fixture({ "/work/a": { kind: "alias", target: "/work" } }, {
+            load: () => ({ terminal: "ghostty", folder, link: "follow" })
+        });
 
         // An array from the artifact's own realm, so compared by what it holds.
-        assert.equal(context[ARTIFACT].execute(["/work/a"], config, io).length, 0);
-        assert.deepEqual(io.events.filter(([name]) => name === "launch"), [["launch", expected]], folder);
+        assert.equal(context[ARTIFACT].execute(["/work/a"], hostFor(io)).length, 0);
+        assert.deepEqual(io.events.filter(([name]) => name === "launch"), [["launch", expected, "ghostty"]], folder);
     }
 });
 
@@ -74,7 +79,7 @@ test("the loaded artifact refuses what the source refuses, before touching anyth
     const io = fixture();
 
     assert.throws(
-        () => context[ARTIFACT].execute(["/a", "/b"], { defaultFolderAction: "ASK", defaultLinkAction: "ASK" }, io),
+        () => context[ARTIFACT].execute(["/a", "/b"], hostFor(io)),
         /one selected item at a time/u
     );
     assert.deepEqual(calls(io), []);

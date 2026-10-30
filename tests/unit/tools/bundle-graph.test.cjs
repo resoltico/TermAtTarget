@@ -2,8 +2,7 @@
 
 /*
  * What a module may require, and the graph those requires make: only listed
- * local modules and the two embedded values, nothing from the core into the
- * host, and no cycles.
+ * local modules, nothing from the core into the host, and no cycles.
  */
 
 const assert = require("node:assert/strict");
@@ -21,13 +20,15 @@ test("a local require resolves to the listed module it names, however it is quot
     });
 });
 
-test("the embedded values are dependencies the runtime may have", async () => {
+test("nothing is embedded: a specifier that is not a relative path is refused, even from the runtime", async () => {
     const { dependencies } = await load();
 
-    assert.deepEqual(
-        dependencies("require(\"#config\"); require(\"#metadata\");", "src/runtime/entry.js"),
-        { "#config": "#config", "#metadata": "#metadata" }
-    );
+    for (const specifier of ["#config", "#metadata"]) {
+        assert.throws(
+            () => dependencies(`require("${specifier}")`, "src/runtime/entry.js"),
+            new RegExp(`^Error: External runtime dependency in src/runtime/entry\\.js: ${specifier}$`, "u")
+        );
+    }
 });
 
 test("a module that requires nothing has no dependencies", async () => {
@@ -69,27 +70,23 @@ test("a module the manifest does not list is refused", async () => {
     assert.throws(() => dependencies("require(\"../../outside.js\")", "src/core/plan.js"), /Unlisted module/u);
 });
 
-test("the core may not reach the host, or its configuration", async () => {
+test("the core may not reach the host", async () => {
     const { dependencies } = await load();
 
     assert.throws(
         () => dependencies("require(\"../runtime/host.js\")", "src/core/plan.js"),
         /^Error: The portable core may not import a host adapter\.$/u
     );
-    assert.throws(
-        () => dependencies("require(\"#config\")", "src/core/plan.js"),
-        /^Error: The portable core may not read embedded application configuration\.$/u
-    );
     assert.deepEqual(dependencies("require(\"../core/paths.js\")", "src/runtime/links.js"),
         { "../core/paths.js": "src/core/paths.js" }, "the host may reach the core");
 });
 
-test("an acyclic graph with embedded values passes", async () => {
+test("an acyclic graph passes", async () => {
     const { verifyGraph } = await load();
 
     assert.doesNotThrow(() => verifyGraph({
-        entry: { host: "host", config: "#config" },
-        host: { meta: "#metadata" },
+        entry: { host: "host" },
+        host: {},
         other: { host: "host" }
     }));
 });

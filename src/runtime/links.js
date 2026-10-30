@@ -1,6 +1,7 @@
 "use strict";
 
 const { displayPath } = require("../core/paths.js");
+const { refusal } = require("../core/errors.js");
 const { physicalPath } = require("../core/resolve.js");
 const { isNil, fileManager, nativeFailure } = require("./bridge.js");
 const { inspect } = require("./attributes.js");
@@ -30,7 +31,11 @@ function resolveAlias(bridge, path) {
     );
 
     if (isNil(url)) {
-        throw nativeFailure(bridge, "Cannot resolve alias target for", path, error);
+        // The one native failure a person causes and can put right, so it says how.
+        const failure = nativeFailure(bridge, "Cannot resolve alias target for", path, error);
+
+        throw Object.assign(refusal("The alias's original can't be found", `${failure.message}. Choose Open Where It Is ` +
+            "to open the folder the alias is in, or set Finder aliases to Open where it is in the settings."), { native: failure.native });
     }
 
     if (!url.isFileURL) {

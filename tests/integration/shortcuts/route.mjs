@@ -4,13 +4,14 @@
  * shortcut's own input. Unit tests are handed the input shape as it was
  * measured; this is where that measurement stays true.
  *
- * The configuration is fixed at INSIDE and TARGET so nothing waits on a
- * question, and each successful run is checked in the shell Terminal starts.
+ * The settings saved for it open folders inside and follow links, so nothing
+ * waits on a question, and each successful run is checked in the shell
+ * Terminal starts.
  */
 import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { assertInstalled, stage, runRoute } from "./harness.mjs";
+import { assertInstalled, stage, unstage, runRoute, runRefused } from "./harness.mjs";
 import { shellAt } from "../terminal-cwd.mjs";
 
 async function opensAt(route, items, expected) {
@@ -31,14 +32,16 @@ async function opensAt(route, items, expected) {
     return seen;
 }
 
+// Refused in Term At Target's own alert, which then ends the run quietly.
 async function refused(route, items) {
-    const { ran, seen } = await runRoute(route, items);
+    const { status, alert, seen } = await runRefused(route, items);
 
-    if (ran.status === 0 || !`${ran.stderr}${ran.stdout}`.includes("one selected item at a time")) {
-        throw new Error(`${route}: two items were not refused as two: ${ran.status} ${ran.stderr}${ran.stdout}`);
+    if (status !== 0 || alert === null || !alert.includes("Select one item at a time") ||
+        !alert.includes("one selected item at a time")) {
+        throw new Error(`${route}: two items were not refused as two: ${status} ${JSON.stringify(alert)}`);
     }
 
-    return seen;
+    return { ...seen, alert };
 }
 
 async function fixtures(temp) {
@@ -74,8 +77,11 @@ async function eachRoute(at) {
 
 export async function throughShortcuts(temp, production) {
     assertInstalled();
-    await stage(production);
 
-    const at = await fixtures(temp);
-    return await eachRoute(at);
+    try {
+        await stage(production);
+        return await eachRoute(await fixtures(temp));
+    } finally {
+        unstage();
+    }
 }
