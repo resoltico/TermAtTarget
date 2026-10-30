@@ -84,7 +84,7 @@ test("the runtime may, and a name that contains one is not one", async () => {
 });
 
 test("a shipped module may not write to disk, by any of the ways Foundation or libc offer", async () => {
-    // The product writes nothing, and INSTALL.txt says there is nothing to remove.
+    // The product writes no file, and INSTALL.txt says its settings are all there is.
     const { checkBoundaries, writesIn } = await load();
     const writes = [
         ["ns.mkdir(dir, 448)", "mkdir"],
@@ -104,8 +104,8 @@ test("a shipped module may not write to disk, by any of the ways Foundation or l
         assert.equal(writesIn(code), name, code);
         assert.throws(
             () => checkBoundaries("src/runtime/x.js", `${code};\n`),
-            new RegExp(`^Error: src/runtime/x\\.js: calls ${name}; the action writes nothing to disk, ` +
-                "and INSTALL\\.txt tells people there is nothing to remove$", "u"),
+            new RegExp(`^Error: src/runtime/x\\.js: calls ${name}; the action writes no file, ` +
+                "and INSTALL\\.txt tells people its settings are all there is to remove$", "u"),
             code
         );
     }
@@ -122,4 +122,15 @@ test("prose that mentions a write, and reads that resemble one, are not writes",
     }
 
     assert.doesNotThrow(() => checkBoundaries("tools/x.mjs", "fs.mkdir(p);\n"), "tools may write");
+});
+
+test("only the preferences module may reach the saved settings", async () => {
+    const { checkBoundaries } = await load();
+
+    assert.doesNotThrow(() => checkBoundaries("src/runtime/preferences.js", "ns.NSUserDefaults.alloc;\n"));
+    assert.throws(
+        () => checkBoundaries("src/runtime/host.js", "$.NSUserDefaults.standardUserDefaults;\n"),
+        /^Error: src\/runtime\/host\.js: names NSUserDefaults; the saved settings are written only by src\/runtime\/preferences\.js, so what the action writes is in one place$/u
+    );
+    assert.doesNotThrow(() => checkBoundaries("src/runtime/host.js", "const MyNSUserDefaultsish = 1;\n"));
 });

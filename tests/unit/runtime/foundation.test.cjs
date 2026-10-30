@@ -36,6 +36,13 @@ test("the dialogs' and launcher's primitives are there too, bound the same way",
         "Cannot close \"/x\": busy (NSCocoaErrorDomain 260)"
     );
     assert.deepEqual(Object.keys(files).sort(), [
-        "inspect", "isNil", "isPackage", "nativeFailure", "pathOf", "readLink", "resolveAlias", "validateDirectory"
+        "home", "inspect", "isNil", "isPackage", "nativeFailure", "pathOf", "readLink", "resolveAlias", "validateDirectory"
     ]);
+});
+
+test("the home folder is Foundation's, as text", () => {
+    const { bridge } = fakeFoundation();
+
+    bridge.ns.NSHomeDirectory = () => box("/Users/you");
+    assert.equal(createFoundation(bridge).home(), "/Users/you");
 });

@@ -1,8 +1,8 @@
 "use strict";
 
 /*
- * The artifact's entry: a run hands the workflow what was selected, the
- * embedded configuration, and a host made for that run.
+ * The artifact's entry: a run hands the workflow what was selected and a
+ * host made for that run.
  *
  * entry.js is three lines of glue, so the host it would build is substituted
  * in Node's module cache rather than faking a whole Mac underneath it.
@@ -43,7 +43,7 @@ function withStandIns(standIns, action) {
     }
 }
 
-test("a run hands the workflow its input, the embedded configuration and a new host", () => {
+test("a run hands the workflow its input and a new host", () => {
     const received = [];
     const madeHost = { made: true };
     const answer = withStandIns({
@@ -55,8 +55,37 @@ test("a run hands the workflow its input, the embedded configuration and a new h
     }, (entry) => entry.run(["/input"]));
 
     assert.deepEqual(answer, ["done"]);
-    assert.deepEqual(received, [[["/input"], require("#config"), madeHost]]);
-    assert.equal(received[0][2], madeHost);
+    assert.deepEqual(received, [[["/input"], madeHost]]);
+    assert.equal(received[0][1], madeHost);
+});
+
+test("a failed run is told in the host's alert, and then ends quietly", () => {
+    const failure = new Error("refused");
+    const reported = [];
+    const answer = withStandIns({
+        createMacHost: () => ({ report: (error) => reported.push(error) }),
+        execute() {
+            throw failure;
+        }
+    }, (entry) => entry.run(["/input"]));
+
+    assert.deepEqual(answer, []);
+    assert.deepEqual(reported, [failure]);
+});
+
+test("a failure the alert cannot tell is thrown as itself, for Shortcuts to show", () => {
+    const failure = new Error("refused");
+
+    assert.throws(() => withStandIns({
+        createMacHost: () => ({
+            report() {
+                throw new Error("no alert");
+            }
+        }),
+        execute() {
+            throw failure;
+        }
+    }, (entry) => entry.run(["/input"])), (error) => error === failure);
 });
 
 test("the pieces a native harness needs are exported with it", () => {
@@ -64,7 +93,8 @@ test("the pieces a native harness needs are exported with it", () => {
         assert.deepEqual(Object.keys(entry).sort(), ["createMacHost", "execute", "forNativeTests", "run"]);
         assert.equal(typeof entry.createMacHost, "function");
         assert.equal(typeof entry.execute, "function");
-        assert.deepEqual(Object.keys(entry.forNativeTests).sort(), ["createDialogs", "createFoundation", "presentName", "supervise"]);
+        assert.deepEqual(Object.keys(entry.forNativeTests).sort(),
+            ["createFailureReport", "createFoundation", "createPreferences", "createQuestions", "presentName", "supervise"]);
         assert.equal(entry.forNativeTests.supervise, require("../../../src/runtime/supervise.js").supervise);
     });
 });

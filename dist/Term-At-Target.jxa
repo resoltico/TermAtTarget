@@ -1,12 +1,11 @@
 /*
-Term At Target 1.0.1
-Generated from src/. Edit config.json and rebuild for source-controlled changes.
-For a personal pasted copy only, edit TERM_AT_TARGET_CONFIG below.
+Term At Target 2.0.0
+Generated from src/; do not edit. Settings are changed by running it with nothing selected.
 Native macOS verification status is recorded in QA.md. No Node runtime required.
 
 Copyright (c) 2026 Ervins Strauhmanis
 SPDX-License-Identifier: MPL-2.0
-Source Code Form: https://github.com/resoltico/TermAtTarget/tree/v1.0.1
+Source Code Form: https://github.com/resoltico/TermAtTarget/tree/v2.0.0
 
 Mozilla Public License Version 2.0
 ==================================
@@ -383,60 +382,168 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 */
 
-var TERM_AT_TARGET_CONFIG = {
-    "defaultFolderAction": "ASK",
-    "defaultLinkAction": "ASK"
-};
-
 var __TermAtTarget = (function () {
     "use strict";
     var factories = {
-"src/core/config.js": function (require, module, exports) {
+"src/core/vocabulary.js": function (require, module, exports) {
 "use strict";
 
-const FOLDER_ACTIONS = Object.freeze(["ASK", "INSIDE", "LEVEL"]);
-const LINK_ACTIONS = Object.freeze(["ASK", "TARGET", "LINK"]);
+/*
+ * The words the core and every question share: the answers a person can give,
+ * and the terminal apps a destination can be opened in. Wording shown to a
+ * person lives with the questions; these are what the answers mean.
+ *
+ * The folder, link and terminal values are also what is saved as settings, so
+ * each is a stored format: renaming one turns every saved copy of it into a
+ * value that is no longer recognised.
+ */
 
-function validateConfig(config) {
-    if (!config || typeof config !== "object" || Array.isArray(config)) {
-        throw new Error("Configuration must be an object.");
-    }
-    const keys = Object.keys(config).sort();
-    if (keys.join(",") !== "defaultFolderAction,defaultLinkAction") {
-        throw new Error("Configuration must contain only defaultFolderAction and defaultLinkAction.");
-    }
-    if (!FOLDER_ACTIONS.includes(config.defaultFolderAction)) {
-        throw new Error("defaultFolderAction must be ASK, INSIDE, or LEVEL.");
-    }
-    if (!LINK_ACTIONS.includes(config.defaultLinkAction)) {
-        throw new Error("defaultLinkAction must be ASK, TARGET, or LINK.");
-    }
-    return Object.freeze({
-        defaultFolderAction: config.defaultFolderAction,
-        defaultLinkAction: config.defaultLinkAction
-    });
+// A folder opens inside itself or at its parent, or the person is asked.
+const FOLDER = Object.freeze({ ASK: "ask", INSIDE: "inside", PARENT: "parent" });
+
+// A Finder alias or symbolic link is followed, or opens where it sits.
+const LINK = Object.freeze({ ASK: "ask", FOLLOW: "follow", STAY: "stay" });
+
+// A run given nothing either chooses a folder or changes the settings.
+const START = Object.freeze({ CHOOSE: "choose", SETTINGS: "settings" });
+
+/*
+ * Whether the settings let a folder be opened, as a run given nothing first
+ * says: ready; a saved setting not recognised; or the chosen terminal app not
+ * installed. Only a ready run offers a folder to choose.
+ */
+const SETUP = Object.freeze({ READY: "ready", UNRECOGNISED: "unrecognised", MISSING: "missing" });
+
+/*
+ * The terminal apps, each by the name it goes by. One belongs here only once
+ * a shell it starts has been measured at the folder it was asked to open; how
+ * each is reached is src/runtime/executables.js's.
+ *
+ * `readsVariables` marks an app that expands environment variables in the
+ * folder it is given. Measured for kitty 0.49.2, whether handed the folder by
+ * open or by its own --directory: a folder named "dollar $HOME" opened in the
+ * home folder, while $(...), backticks and ~ stayed literal. Such an app is
+ * never given a folder whose path holds a "$".
+ */
+const TERMINALS = Object.freeze([
+    Object.freeze({ id: "terminal", name: "Terminal", readsVariables: false }),
+    Object.freeze({ id: "ghostty", name: "Ghostty", readsVariables: false }),
+    Object.freeze({ id: "iterm2", name: "iTerm2", readsVariables: false }),
+    Object.freeze({ id: "kitty", name: "kitty", readsVariables: true })
+]);
+
+// The terminal app with this id, or null for an id that is not one.
+function terminalApp(id) {
+    return TERMINALS.find((terminal) => terminal.id === id) ?? null;
 }
 
-module.exports = { validateConfig };
+module.exports = { FOLDER, LINK, START, SETUP, TERMINALS, terminalApp };
+
+},
+
+"src/core/settings.js": function (require, module, exports) {
+"use strict";
+
+const { FOLDER, LINK, TERMINALS } = require("./vocabulary.js");
+const { refusal } = require("./errors.js");
+
+/*
+ * The settings: each one's values, and the value it has until one is saved.
+ *
+ * What was saved arrives as found -- null where nothing is saved, otherwise
+ * whatever the preferences held, which need not be text. A value that is not
+ * one of a setting's own is an error, not a reason to fall back silently: the
+ * run says which setting it is and how to change it.
+ */
+
+const SETTINGS = Object.freeze({
+    terminal: Object.freeze({ values: Object.freeze(TERMINALS.map((terminal) => terminal.id)), initial: "terminal" }),
+    folder: Object.freeze({ values: Object.freeze(Object.values(FOLDER)), initial: FOLDER.ASK }),
+    link: Object.freeze({ values: Object.freeze(Object.values(LINK)), initial: LINK.ASK })
+});
+
+const KEYS = Object.freeze(Object.keys(SETTINGS));
+
+// How a person reaches the settings, said wherever a setting needs changing.
+const HOW_TO_CHANGE = "Run Term At Target with nothing selected to change its settings.";
+
+// What a saved value stands for, or null when it is not one of the setting's.
+function knownSetting(key, saved) {
+    if (saved === null) {
+        return SETTINGS[key].initial;
+    }
+
+    return SETTINGS[key].values.includes(saved) ? saved : null;
+}
+
+/*
+ * A saved value as a person can recognise it: text quoted, numbers and lists
+ * as written, a date as a date, and anything JSON cannot show -- data, say --
+ * by what it is rather than as "{}".
+ */
+function describeSaved(saved) {
+    if (saved instanceof Date) {
+        return `a date, ${saved.toISOString()}`;
+    }
+
+    const plain = saved === null || ["undefined", "string", "number", "boolean"].includes(typeof saved) || Array.isArray(saved) ||
+        Object.getPrototypeOf(saved) === Object.prototype;
+
+    return plain ? String(JSON.stringify(saved)) : "a value that is not text";
+}
+
+function unrecognised(key, saved) {
+    return refusal(`The ${key} setting isn't recognised`, `The saved ${key} setting, ${describeSaved(saved)}, ` +
+        `is not one of ${SETTINGS[key].values.join(", ")}. ${HOW_TO_CHANGE}`);
+}
+
+// Every setting, from what was saved, or the first one that is not recognised.
+function settingsFrom(saved) {
+    return Object.freeze(Object.fromEntries(KEYS.map((key) => {
+        const value = knownSetting(key, saved[key]);
+
+        if (value === null) {
+            throw unrecognised(key, saved[key]);
+        }
+
+        return [key, value];
+    })));
+}
+
+module.exports = { SETTINGS, KEYS, HOW_TO_CHANGE, knownSetting, settingsFrom, describeSaved };
 
 },
 
 "src/core/errors.js": function (require, module, exports) {
 "use strict";
 
-// The number JXA gives a run the person cancelled: userCanceledErr.
-const USER_CANCELLED = -128;
+/*
+ * A question the person cancelled. It ends a run quietly, and nothing else
+ * does: the runtime turns each host's own way of saying "cancelled" into this,
+ * so the core never needs to know what that way is.
+ */
+class Cancelled extends Error {}
 
 function cancelled() {
-    const error = new Error("Cancelled.");
-    error.errorNumber = USER_CANCELLED;
-    return error;
+    return new Cancelled("Cancelled.");
 }
 
 function isCancellation(error) {
-    // JXA reports a cancelled dialog through errorNumber; a `number` or a
-    // `code` property is something else, and is not a cancellation.
-    return Boolean(error && error.errorNumber === USER_CANCELLED);
+    return error instanceof Cancelled;
+}
+
+/*
+ * A failure a person can put right themselves, with a short summary of it --
+ * "Ghostty isn't installed" -- for a host to show as a heading above the
+ * message, which says what happened and what to do. Any other failure has no
+ * summary of its own, and a host gives it a general one.
+ */
+function refusal(summary, message) {
+    return Object.assign(new Error(message), { summary });
+}
+
+function summaryOf(error) {
+    return error && typeof error.summary === "string" ? error.summary : null;
 }
 
 function messageOf(error) {
@@ -446,12 +553,14 @@ function messageOf(error) {
     return String(error);
 }
 
-module.exports = { cancelled, isCancellation, messageOf };
+module.exports = { cancelled, isCancellation, refusal, summaryOf, messageOf };
 
 },
 
 "src/core/paths.js": function (require, module, exports) {
 "use strict";
+
+const { refusal } = require("./errors.js");
 
 /*
  * A path is text the filesystem can hold, and an unpaired UTF-16 surrogate is
@@ -545,7 +654,8 @@ function selectedPath(input, pathOf) {
         return null;
     }
     if (items.length !== 1) {
-        throw new Error("Term At Target opens one selected item at a time. Select one file or folder and run it again.");
+        throw refusal("Select one item at a time",
+            "Term At Target opens one selected item at a time. Select one file or folder and run it again.");
     }
     const text = pathText(pathOf(items[0]));
     const path = absolutePath(text);
@@ -1015,9 +1125,30 @@ function presentPath(path) {
     return present(path, path.split("/"));
 }
 
+/*
+ * A folder inside the person's home folder, written from "~" -- shorter to
+ * read, and never the same text as another folder, since every other path
+ * shown begins with "/" or a quote. Null when it is not inside it. A home that
+ * is missing or not absolute matches no absolute path; a home at the root
+ * would match every one, so it is not used.
+ */
+function fromHome(path, home) {
+    if (home === "/") {
+        return null;
+    }
+
+    if (path === home) {
+        return "~";
+    }
+
+    return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : null;
+}
+
 // A folder's name and the folder it is in, each ready to show.
-function presentLocation(path) {
-    return { name: presentName(path.slice(path.lastIndexOf("/") + 1)), parent: presentPath(parentPath(path)) };
+function presentLocation(path, home = null) {
+    const parent = parentPath(path);
+
+    return { name: presentName(path.slice(path.lastIndexOf("/") + 1)), parent: presentPath(fromHome(parent, home) ?? parent) };
 }
 
 module.exports = { presentName, presentPath, presentLocation };
@@ -1168,24 +1299,28 @@ module.exports = { physicalPath, resolveTarget, MAX_LINKS };
 
 const { absolutePath, parentPath, displayPath } = require("./paths.js");
 const { physicalPath, resolveTarget } = require("./resolve.js");
+const { FOLDER, LINK } = require("./vocabulary.js");
 
 /*
- * Where Terminal opens, decided from what was selected.
+ * Where the terminal app opens, decided from what was selected.
  *
  * An ordinary file opens its parent. A folder opens inside or at its parent. An
  * alias or a symbolic link either opens where it itself sits, or has the same
  * rules applied to what it points at.
+ *
+ * `files` answers what an item is and where a link leads; `ask` puts the
+ * questions to the person.
  */
 
 const ROOT = "/";
 
 // Whether to follow a link to its target or stay where the link sits.
-function linkChoice(path, kind, config, io) {
-    const choice = config.defaultLinkAction === "ASK"
-        ? io.chooseLink(path, kind)
-        : config.defaultLinkAction;
+function linkChoice(path, kind, settings, ask) {
+    const choice = settings.link === LINK.ASK
+        ? ask.chooseLink(path, kind)
+        : settings.link;
 
-    if (choice !== "LINK" && choice !== "TARGET") {
+    if (choice !== LINK.STAY && choice !== LINK.FOLLOW) {
         throw new Error("Invalid link-location choice.");
     }
 
@@ -1197,20 +1332,20 @@ function linkChoice(path, kind, config, io) {
  * root -- there is nothing to ask. `via` is the kind of link the folder was
  * reached through, or null, so a question can say which folder it is about.
  */
-function folderDestination(path, via, config, io) {
+function folderDestination(path, via, settings, ask) {
     if (path === ROOT) {
         return ROOT;
     }
 
-    const choice = config.defaultFolderAction === "ASK"
-        ? io.chooseFolderMode(path, via)
-        : config.defaultFolderAction;
+    const choice = settings.folder === FOLDER.ASK
+        ? ask.chooseFolderMode(path, via)
+        : settings.folder;
 
-    if (choice === "INSIDE") {
+    if (choice === FOLDER.INSIDE) {
         return path;
     }
 
-    if (choice === "LEVEL") {
+    if (choice === FOLDER.PARENT) {
         return parentPath(path);
     }
 
@@ -1233,9 +1368,9 @@ function assertSlashFits(selection, facts) {
  * Without a slash a link is never followed unless the person chooses to follow
  * it, so a link whose target is gone still opens its own folder.
  */
-function slashedTarget(selection, io) {
-    const path = physicalPath(selection.path, io, { links: 0 });
-    const facts = io.inspect(path);
+function slashedTarget(selection, files) {
+    const path = physicalPath(selection.path, files, { links: 0 });
+    const facts = files.inspect(path);
 
     if (facts.kind !== "directory") {
         throw new Error(`${displayPath(`${selection.path}/`)} ends in "/", but it leads to a file, not a folder.`);
@@ -1249,8 +1384,8 @@ function slashedTarget(selection, io) {
  * link the person chose to follow -- what it points at. Null when the answer
  * is the link's own location, which needs no more inspection.
  */
-function standIn(selection, config, io) {
-    const facts = io.inspect(selection.path);
+function standIn(selection, settings, files, ask) {
+    const facts = files.inspect(selection.path);
 
     assertSlashFits(selection, facts);
 
@@ -1258,29 +1393,29 @@ function standIn(selection, config, io) {
         return { path: selection.path, facts, via: null };
     }
 
-    const checked = selection.slashed ? slashedTarget(selection, io) : null;
+    const checked = selection.slashed ? slashedTarget(selection, files) : null;
 
-    if (linkChoice(selection.path, facts.kind, config, io) === "LINK") {
+    if (linkChoice(selection.path, facts.kind, settings, ask) === LINK.STAY) {
         return null;
     }
 
-    return { ...checked ?? resolveTarget(selection.path, io), via: facts.kind };
+    return { ...checked ?? resolveTarget(selection.path, files), via: facts.kind };
 }
 
-function destination(selection, config, io) {
+function destination(selection, settings, files, ask) {
     if (selection === null) {
-        // Choosing a destination is already an explicit INSIDE operation.
-        return absolutePath(io.pathOf(io.chooseFolder()));
+        // Choosing a destination is already an explicit "inside" operation.
+        return absolutePath(files.pathOf(ask.chooseFolder()));
     }
 
-    const item = standIn(selection, config, io);
+    const item = standIn(selection, settings, files, ask);
 
     if (item === null) {
         return parentPath(selection.path);
     }
 
     if (item.facts.kind === "directory") {
-        return folderDestination(item.path, item.via, config, io);
+        return folderDestination(item.path, item.via, settings, ask);
     }
 
     if (item.facts.kind !== "file") {
@@ -1294,33 +1429,182 @@ module.exports = { destination };
 
 },
 
+"src/core/settings-editor.js": function (require, module, exports) {
+"use strict";
+
+const { SETTINGS, KEYS, knownSetting } = require("./settings.js");
+
+/*
+ * Changing the settings, one at a time, until the person is done.
+ *
+ * Each turn shows every setting with what it stands for -- null for a saved
+ * value that is not recognised, so it can be shown as that and replaced --
+ * with the one last picked still selected, and a change is saved as soon as
+ * it is made. Only an installed terminal app
+ * is offered. Every answer is checked against what was offered before anything
+ * is saved: what is saved outlives the run.
+ */
+
+// Each setting, with whether its value can be used: a terminal app must be installed.
+function rowsOf(saved, terminals) {
+    return KEYS.map((key) => {
+        const value = knownSetting(key, saved[key]);
+        const available = key !== "terminal" || value === null || terminals.isInstalled(value);
+
+        return { key, value, saved: saved[key], available };
+    });
+}
+
+function valuesFor(key, terminals) {
+    if (key !== "terminal") {
+        return SETTINGS[key].values;
+    }
+
+    const installed = SETTINGS.terminal.values.filter((id) => terminals.isInstalled(id));
+
+    if (installed.length === 0) {
+        throw new Error("None of the terminal apps Term At Target can open is installed.");
+    }
+
+    return installed;
+}
+
+function invalidAnswer() {
+    return new Error("The settings list returned an invalid answer.");
+}
+
+// One setting changed and saved, or left as it was when the person backs out.
+function change(key, current, ports) {
+    if (!KEYS.includes(key)) {
+        throw invalidAnswer();
+    }
+
+    const values = valuesFor(key, ports.terminals);
+    const value = ports.screen.pickValue(key, values, knownSetting(key, current[key]));
+
+    if (value === null) {
+        return;
+    }
+
+    if (!values.includes(value)) {
+        throw invalidAnswer();
+    }
+
+    ports.preferences.save(key, value);
+    current[key] = value;
+}
+
+function editSettings(saved, screen, preferences, terminals) {
+    const current = { ...saved };
+
+    const rows = () => rowsOf(current, terminals);
+
+    for (let key = screen.pickSetting(rows(), KEYS[0]); key !== null; key = screen.pickSetting(rows(), key)) {
+        change(key, current, { screen, preferences, terminals });
+    }
+}
+
+module.exports = { editSettings };
+
+},
+
 "src/core/workflow.js": function (require, module, exports) {
 "use strict";
 
-const { validateConfig } = require("./config.js");
-const { selectedPath } = require("./paths.js");
+const { selectedPath, parentPath } = require("./paths.js");
 const { selectionOf } = require("./invocation.js");
-const { isCancellation } = require("./errors.js");
+const { isCancellation, refusal } = require("./errors.js");
 const { destination } = require("./plan.js");
+const { START, SETUP, terminalApp } = require("./vocabulary.js");
+const { KEYS, HOW_TO_CHANGE, knownSetting, settingsFrom } = require("./settings.js");
+const { editSettings } = require("./settings-editor.js");
 
 /*
- * One run: read what was selected, decide where Terminal opens, check it is
- * still a folder that can be entered, and ask Terminal to open there.
+ * One run: read what was selected and the saved settings, decide where the
+ * terminal app opens, check it is still a folder that can be entered, and ask
+ * the app to open there. A run given nothing first asks whether to choose a
+ * folder or change the settings -- or, when a saved setting is not recognised
+ * or the chosen app is not installed, says so and offers only the settings,
+ * which is how either is put right.
  *
- * Runs are independent. Nothing is shared between them -- no file is written
- * and no state is kept -- so there is nothing for one run to wait on or guard
- * against another. A cancelled question ends the run quietly; anything else
+ * The host is a set of ports: `files`, the filesystem; `preferences`, the
+ * saved settings; `terminals`, the apps; `questions(name)`, the questions,
+ * worded for the app they are about (null when it is not known yet); and
+ * `settingsScreen`, the settings list.
+ *
+ * Runs are independent apart from the settings: nothing else is written and
+ * no state is kept. A cancelled question ends the run quietly; anything else
  * thrown is thrown on as itself, even a value that is falsy.
  */
-function execute(input, rawConfig, host) {
-    const config = validateConfig(rawConfig);
-    const selection = selectedPath(selectionOf(input), (value) => host.pathOf(value));
+
+function setupOf(saved, terminals) {
+    if (KEYS.some((key) => knownSetting(key, saved[key]) === null)) {
+        return SETUP.UNRECOGNISED;
+    }
+
+    return terminals.isInstalled(knownSetting("terminal", saved.terminal)) ? SETUP.READY : SETUP.MISSING;
+}
+
+function wantsSettings(saved, host) {
+    const setup = setupOf(saved, host.terminals);
+    const terminal = terminalApp(knownSetting("terminal", saved.terminal));
+    const choice = host.questions(terminal?.name ?? null).start(setup);
+    const offered = setup === SETUP.READY ? [START.CHOOSE, START.SETTINGS] : [START.SETTINGS];
+
+    if (!offered.includes(choice)) {
+        throw new Error("Invalid start choice.");
+    }
+
+    return choice === START.SETTINGS;
+}
+
+function installed(id, terminals) {
+    const terminal = terminalApp(id);
+
+    if (!terminals.isInstalled(id)) {
+        throw refusal(`${terminal.name} isn't installed`, `${terminal.name} is the terminal app in Term At Target's ` +
+            `settings, but macOS cannot find it. Install it, or choose another app. ${HOW_TO_CHANGE} If you've just ` +
+            "installed it, open it once from Applications, then try again.");
+    }
+
+    return terminal;
+}
+
+/*
+ * A folder an app that expands variables would read as somewhere else. When
+ * the folder it is in has no "$", that one would open, and the message says so.
+ */
+function assertLiteral(terminal, path) {
+    if (terminal.readsVariables && path.includes("$")) {
+        const way = parentPath(path).includes("$")
+            ? `Choose another terminal app for this folder. ${HOW_TO_CHANGE}`
+            : `Its parent folder has no "$", so ${terminal.name} can open that: choose Open in Parent, or choose another terminal app. ${HOW_TO_CHANGE}`;
+
+        throw refusal(`${terminal.name} can't open this folder`, `${terminal.name} reads "$" in a folder's path as the ` +
+            `start of a variable, so it would open somewhere other than ${JSON.stringify(path)}. ${way}`);
+    }
+}
+
+function open(selection, saved, host) {
+    const settings = settingsFrom(saved);
+    const terminal = installed(settings.terminal, host.terminals);
+    const path = destination(selection, settings, host.files, host.questions(terminal.name));
+
+    host.files.validateDirectory(path);
+    assertLiteral(terminal, path);
+    host.terminals.launch(terminal.id, path);
+}
+
+function execute(input, host) {
+    const selection = selectedPath(selectionOf(input), (value) => host.files.pathOf(value));
+    const saved = host.preferences.load();
 
     try {
-        const path = destination(selection, config, host);
-
-        host.validateDirectory(path);
-        host.launch(path);
+        if (selection === null && wantsSettings(saved, host)) {
+            editSettings(saved, host.settingsScreen, host.preferences, host.terminals);
+        } else {
+            open(selection, saved, host);
+        }
     } catch (error) {
         if (isCancellation(error)) {
             return [];
@@ -1340,8 +1624,8 @@ module.exports = { execute };
 "use strict";
 
 /*
- * Everything outside this script the action runs or asks for, and nothing
- * else.
+ * Everything outside this script the action runs, asks for or writes to, and
+ * nothing else.
  *
  * The action's whole external surface is this file: tools/lint refuses an
  * absolute executable path named anywhere else under src/. The program ships
@@ -1351,11 +1635,24 @@ module.exports = { execute };
 // Opens an application at a directory, given as an argument, not a command.
 const OPEN = "/usr/bin/open";
 
-// Terminal, named by its bundle identifier: a display name could match some
-// other application called Terminal.
-const TERMINAL = "com.apple.Terminal";
+/*
+ * Each terminal app in src/core/vocabulary.js, by its bundle identifier. A
+ * display name could match some other application with the same name; an
+ * identifier is the vendor's, and stays the same however the app was
+ * installed -- from the vendor, or by a Homebrew cask, which installs the
+ * vendor's own app -- and wherever it was put.
+ */
+const TERMINAL_BUNDLES = Object.freeze({
+    terminal: "com.apple.Terminal",
+    ghostty: "com.mitchellh.ghostty",
+    iterm2: "com.googlecode.iterm2",
+    kitty: "net.kovidgoyal.kitty"
+});
 
-module.exports = { OPEN, TERMINAL };
+// Where the settings are saved: the preferences domain `defaults` reads.
+const PREFERENCES_DOMAIN = "com.resoltico.TermAtTarget";
+
+module.exports = { OPEN, TERMINAL_BUNDLES, PREFERENCES_DOMAIN };
 
 },
 
@@ -1520,6 +1817,7 @@ module.exports = { attributes, attribute, resourceBoolean, inspect, isPackage };
 "use strict";
 
 const { displayPath } = require("../core/paths.js");
+const { refusal } = require("../core/errors.js");
 const { physicalPath } = require("../core/resolve.js");
 const { isNil, fileManager, nativeFailure } = require("./bridge.js");
 const { inspect } = require("./attributes.js");
@@ -1549,7 +1847,11 @@ function resolveAlias(bridge, path) {
     );
 
     if (isNil(url)) {
-        throw nativeFailure(bridge, "Cannot resolve alias target for", path, error);
+        // The one native failure a person causes and can put right, so it says how.
+        const failure = nativeFailure(bridge, "Cannot resolve alias target for", path, error);
+
+        throw Object.assign(refusal("The alias's original can't be found", `${failure.message}. Choose Open Where It Is ` +
+            "to open the folder the alias is in, or set Finder aliases to Open where it is in the settings."), { native: failure.native });
     }
 
     if (!url.isFileURL) {
@@ -1759,6 +2061,8 @@ function createFoundation(bridge) {
         resolveAlias: (path) => resolveAlias(bridge, path),
         readLink: (path) => readLink(bridge, path),
         pathOf: (value) => pathOf(bridge, value),
+        // The person's home folder, for showing paths inside it from "~".
+        home: () => String(bridge.objc.unwrap(bridge.ns.NSHomeDirectory())),
         validateDirectory: (path) => validateDirectory(bridge, path),
         isNil,
         nativeFailure: (operation, path, error) => nativeFailure(bridge, operation, path, error)
@@ -1769,80 +2073,317 @@ module.exports = { createFoundation };
 
 },
 
-"src/runtime/dialogs.js": function (require, module, exports) {
+"src/runtime/preferences.js": function (require, module, exports) {
 "use strict";
 
-const { presentLocation } = require("../core/present.js");
+const { KEYS } = require("../core/settings.js");
+const { isNil } = require("./bridge.js");
 
 /*
- * The questions asked of the person.
+ * The saved settings, in macOS preferences: one domain, a key per setting,
+ * each value the setting's own text. This is the one thing the action writes.
  *
- * Each opens with the question itself, shows each path once -- the item's
- * name, and the folder it is in -- and answers with a button that says what
- * it does: Cancel, the alternative, and the usual answer as the default, so
- * Return takes it and Esc cancels. A link question's answers say "Follow",
- * not "Open", since a folder question may come next. Names are shown by
- * src/core/present.js, which quotes and escapes anything that could mislead;
- * what is shown is never read back as a path.
+ * Measured on macOS 27: run inside Shortcuts (as ShortcutsMacHelper, not
+ * sandboxed) a value saved to a named domain lands in ~/Library/Preferences,
+ * where `defaults` and osascript read the same value back.
+ *
+ * Only the domain's own dictionary is read. A named NSUserDefaults also looks
+ * in the host app's domain and the global one, and these keys are generic
+ * names: measured, a `link` written to the global domain changed a run that
+ * nothing in this domain had set. Writing through the named domain writes to
+ * the domain itself.
+ *
+ * Each value is handed over as found -- null where nothing is saved, otherwise
+ * whatever the domain holds, which someone using `defaults` may have made a
+ * number, a list or a date -- and the core decides whether it is one it
+ * recognises.
+ */
+
+function domainOf(bridge, domain) {
+    const defaults = bridge.ns.NSUserDefaults.alloc.initWithSuiteName(domain);
+
+    if (isNil(defaults)) {
+        throw new Error(`macOS could not open the preferences domain ${domain}.`);
+    }
+
+    return defaults;
+}
+
+function load(bridge, domain) {
+    const stored = bridge.ns.NSUserDefaults.standardUserDefaults.persistentDomainForName(domain);
+    const values = isNil(stored) ? {} : bridge.objc.deepUnwrap(stored);
+
+    return Object.fromEntries(KEYS.map((key) => [key, Object.hasOwn(values, key) ? values[key] : null]));
+}
+
+function save(bridge, domain, key, value) {
+    domainOf(bridge, domain).setObjectForKey(bridge.ns(value), key);
+}
+
+function createPreferences(bridge, domain) {
+    return {
+        load: () => load(bridge, domain),
+        save: (key, value) => save(bridge, domain, key, value)
+    };
+}
+
+module.exports = { createPreferences };
+
+},
+
+"src/runtime/standard-additions.js": function (require, module, exports) {
+"use strict";
+
+const { cancelled } = require("../core/errors.js");
+
+/*
+ * Standard Additions, as every question uses it: an answer is one of those
+ * offered, and Cancel is the core's cancellation.
+ *
+ * Standard Additions says a person cancelled by throwing errorNumber -128
+ * (userCanceledErr), from a dialog and from the folder chooser alike; a
+ * `number` or `code` property, or the number as text, is something else. A
+ * list a person cancels returns false instead of throwing.
  */
 
 const TITLE = "Term At Target";
 const CANCEL = "Cancel";
-const INSIDE = "Open Inside";
-const PARENT = "Open in Parent";
-const WHERE_IT_IS = "Open Where It Is";
-const LINKS = {
-    alias: { noun: "Finder alias", label: "Alias", follow: "Follow Alias" },
-    symlink: { noun: "symbolic link", label: "Link", follow: "Follow Link" }
-};
+const USER_CANCELLED = -128;
+
+function answered(action) {
+    try {
+        return action();
+    } catch (error) {
+        if (error && error.errorNumber === USER_CANCELLED) {
+            throw cancelled();
+        }
+
+        throw error;
+    }
+}
 
 /*
- * The button pressed, which must be one of those offered. Cancel is not an
- * answer: Standard Additions throws for it with errorNumber -128, which the
- * core recognises as a cancellation, so it passes through as thrown.
+ * A dialog with Cancel, the alternative if there is one, and the usual answer
+ * as the default, on the right, so Return takes it and Esc cancels. Three is
+ * as many buttons as Standard Additions allows.
  */
 function ask(app, text, answers) {
-    const answer = app.displayDialog(text, {
+    const offered = answers.other === undefined ? [answers.usual] : [answers.other, answers.usual];
+    const answer = answered(() => app.displayDialog(text, {
         withTitle: TITLE,
-        buttons: [CANCEL, answers.other, answers.usual],
+        buttons: [CANCEL, ...offered],
         defaultButton: answers.usual,
         cancelButton: CANCEL
-    });
+    }));
 
-    if (answer === null || typeof answer !== "object" || ![answers.other, answers.usual].includes(answer.buttonReturned)) {
-        throw new Error("The location dialog returned an invalid answer.");
+    if (answer === null || typeof answer !== "object" || !offered.includes(answer.buttonReturned)) {
+        throw new Error("The dialog returned an invalid answer.");
     }
 
     return answer.buttonReturned;
 }
 
-function folderQuestion(path, via, files) {
-    const { name, parent } = presentLocation(path);
+// One item from a list, or null when the person backs out of it.
+function pick(app, items, options) {
+    const answer = answered(() => app.chooseFromList(items, {
+        ...options,
+        multipleSelectionsAllowed: false,
+        emptySelectionAllowed: false
+    }));
+
+    if (answer === false) {
+        return null;
+    }
+
+    if (!Array.isArray(answer) || answer.length !== 1 || !items.includes(answer[0])) {
+        throw new Error("The settings list returned an invalid answer.");
+    }
+
+    return answer[0];
+}
+
+// An alert saying what went wrong, which OK dismisses: there is nothing to decide.
+function alert(app, summary, message) {
+    app.displayAlert(summary, { message, as: "warning", buttons: ["OK"], defaultButton: "OK" });
+}
+
+function chooseFolder(app, prompt) {
+    return answered(() => app.chooseFolder({ withPrompt: prompt, multipleSelectionsAllowed: false }));
+}
+
+module.exports = { TITLE, ask, pick, alert, chooseFolder };
+
+},
+
+"src/runtime/questions.js": function (require, module, exports) {
+"use strict";
+
+const { presentLocation } = require("../core/present.js");
+const { FOLDER, LINK, START, SETUP } = require("../core/vocabulary.js");
+const { ask, chooseFolder } = require("./standard-additions.js");
+
+/*
+ * The questions asked of the person, worded for the terminal app they are
+ * about.
+ *
+ * Each opens with the question itself, shows each path once -- the item's
+ * name, and the folder it is in, from "~" inside the person's home folder --
+ * and answers with a button that says what it does. A link question's answers
+ * say "Follow", not "Open", since a folder question may come next. Names are shown by src/core/present.js, which quotes
+ * and escapes anything that could mislead; what is shown is never read back
+ * as a path.
+ */
+
+const INSIDE = "Open Inside";
+const PARENT = "Open in Parent";
+const WHERE_IT_IS = "Open Where It Is";
+const SETTINGS = "Settings…";
+const CHOOSE = "Choose Folder…";
+const LINKS = {
+    alias: { noun: "Finder alias", label: "Alias", follow: "Follow Alias" },
+    symlink: { noun: "symbolic link", label: "Link", follow: "Follow Link" }
+};
+
+function folderQuestion(name, path, via, files) {
+    const location = presentLocation(path, files.home());
     const noun = files.isPackage(path) ? "Package" : "Folder";
     const origin = via === null ? "" : `\nThis is where the selected ${LINKS[via].noun} points.`;
 
-    return `Where should Terminal open?\n\n${noun}: ${name}\nIn: ${parent}${origin}`;
+    return `Where should ${name} open?\n\n${noun}: ${location.name}\nIn: ${location.parent}${origin}`;
 }
 
-function createDialogs(app, files) {
+/*
+ * A run given nothing: a folder to choose, or the settings to change. When the
+ * settings cannot open anything, it says why and offers only them.
+ */
+function start(app, name, setup) {
+    if (setup === SETUP.READY) {
+        return ask(app, `Choose a folder to open in ${name}.`, { other: SETTINGS, usual: CHOOSE }) === CHOOSE
+            ? START.CHOOSE
+            : START.SETTINGS;
+    }
+
+    const text = setup === SETUP.MISSING
+        ? `${name}, the terminal app in the settings, isn't installed.\n\nChoose another app in Settings, or install ${name}.`
+        : "A saved setting isn't recognised.\n\nOpen Settings to see which one, and change it.";
+
+    ask(app, text, { usual: SETTINGS });
+    return START.SETTINGS;
+}
+
+function questionsFor(app, files, name) {
     return {
-        chooseFolder() {
-            return app.chooseFolder({ withPrompt: "Choose a folder to open in Terminal:", multipleSelectionsAllowed: false });
-        },
+        start: (setup) => start(app, name, setup),
+        chooseFolder: () => chooseFolder(app, `Choose a folder to open in ${name}:`),
         chooseFolderMode(path, via) {
-            return ask(app, folderQuestion(path, via, files), { other: PARENT, usual: INSIDE }) === INSIDE ? "INSIDE" : "LEVEL";
+            return ask(app, folderQuestion(name, path, via, files), { other: PARENT, usual: INSIDE }) === INSIDE
+                ? FOLDER.INSIDE
+                : FOLDER.PARENT;
         },
         chooseLink(path, kind) {
             const link = LINKS[kind];
-            const { name, parent } = presentLocation(path);
-            const text = `Follow this ${link.noun}, or open Terminal where it is?\n\n${link.label}: ${name}\nIn: ${parent}`;
+            const location = presentLocation(path, files.home());
+            const text = `Follow this ${link.noun}, or open ${name} where it is?\n\n${link.label}: ${location.name}\nIn: ${location.parent}`;
 
-            return ask(app, text, { other: WHERE_IT_IS, usual: link.follow }) === link.follow ? "TARGET" : "LINK";
+            return ask(app, text, { other: WHERE_IT_IS, usual: link.follow }) === link.follow ? LINK.FOLLOW : LINK.STAY;
         }
     };
 }
 
-module.exports = { createDialogs };
+// The questions, made for the terminal app named (null before one is known).
+function createQuestions(app, files) {
+    return (name) => questionsFor(app, files, name);
+}
+
+module.exports = { createQuestions };
+
+},
+
+"src/runtime/settings-screen.js": function (require, module, exports) {
+"use strict";
+
+const { terminalApp } = require("../core/vocabulary.js");
+const { presentName } = require("../core/present.js");
+const { describeSaved } = require("../core/settings.js");
+const { pick } = require("./standard-additions.js");
+
+/*
+ * The settings, as Standard Additions lists show them: one list of every
+ * setting with what it is set to, the one picked last selected, and for the
+ * one picked, a list of its values with the current one selected. "Done"
+ * leaves the first list and "Back" the second, neither of them a cancellation.
+ *
+ * Every value the core offers has words here, or a test fails: a value added
+ * to the core without them could not be shown.
+ */
+
+const TITLE = "Term At Target Settings";
+
+const SETTINGS = {
+    terminal: { label: "Terminal app", prompt: "Open folders in:" },
+    folder: { label: "When a folder is selected", prompt: "When a folder is selected:" },
+    // Shortcuts resolves a selected symbolic link before the action sees it
+    // (measured), so from Finder this setting only ever meets Finder aliases.
+    link: { label: "When a Finder alias is selected", prompt: "When a Finder alias is selected:" }
+};
+
+const VALUES = {
+    folder: { ask: "Ask each time", inside: "Open inside", parent: "Open in parent" },
+    link: { ask: "Ask each time", follow: "Follow the alias", stay: "Open where it is" }
+};
+
+function valueLabel(key, value) {
+    return key === "terminal" ? terminalApp(value).name : VALUES[key][value];
+}
+
+// A saved value that is not recognised, shown as text when it is text.
+function unrecognised(saved) {
+    return typeof saved === "string" ? presentName(saved) : describeSaved(saved);
+}
+
+function rowLabel(row) {
+    const value = row.value === null ? `not recognised (${unrecognised(row.saved)})` : valueLabel(row.key, row.value);
+    const shown = row.available ? value : `${value} (not installed)`;
+
+    return `${SETTINGS[row.key].label}: ${shown}`;
+}
+
+// Every setting, with the one picked last (or the first) selected.
+function pickSetting(app, rows, focus) {
+    const items = rows.map(rowLabel);
+    const selected = rows.findIndex((row) => row.key === focus);
+    const answer = pick(app, items, {
+        withTitle: TITLE,
+        withPrompt: "Choose a setting to change:",
+        defaultItems: [items[Math.max(selected, 0)]],
+        okButtonName: "Change…",
+        cancelButtonName: "Done"
+    });
+
+    return answer === null ? null : rows[items.indexOf(answer)].key;
+}
+
+function pickValue(app, key, values, current) {
+    const items = values.map((value) => valueLabel(key, value));
+    const answer = pick(app, items, {
+        withTitle: SETTINGS[key].label,
+        withPrompt: SETTINGS[key].prompt,
+        defaultItems: values.includes(current) ? [valueLabel(key, current)] : [],
+        okButtonName: "Use",
+        cancelButtonName: "Back"
+    });
+
+    return answer === null ? null : values[items.indexOf(answer)];
+}
+
+function createSettingsScreen(app) {
+    return {
+        pickSetting: (rows, focus) => pickSetting(app, rows, focus),
+        pickValue: (key, values, current) => pickValue(app, key, values, current)
+    };
+}
+
+module.exports = { createSettingsScreen, SETTINGS, VALUES };
 
 },
 
@@ -1956,31 +2497,47 @@ module.exports = { supervise, DEADLINE_SECONDS, STOP_GRACE_SECONDS };
 
 },
 
-"src/runtime/launcher.js": function (require, module, exports) {
+"src/runtime/terminal-apps.js": function (require, module, exports) {
 "use strict";
 
 const { absolutePath, displayPath } = require("../core/paths.js");
-const { OPEN, TERMINAL } = require("./executables.js");
+const { terminalApp } = require("../core/vocabulary.js");
+const { isNil } = require("./bridge.js");
+const { OPEN, TERMINAL_BUNDLES } = require("./executables.js");
 const { supervise, DEADLINE_SECONDS } = require("./supervise.js");
 
 /*
- * Terminal, opened at a directory by /usr/bin/open.
+ * The terminal apps: whether one is installed, and opening one at a directory
+ * with /usr/bin/open.
+ *
+ * Both go through Launch Services by bundle identifier, so an app is found
+ * wherever it is installed and registered -- /Applications, ~/Applications or
+ * elsewhere -- and by whichever route it got there. Measured inside Shortcuts:
+ * the lookup answers there too.
  *
  * The directory travels as one argument of four, never inside a command a
  * shell would read: a name with quotes, $, backticks, ; or & in it is a name.
- * Measured on macOS against a directory named with all of them, and an emoji:
- * the shell Terminal starts is in that directory exactly.
+ * Measured on macOS against a directory named with all of them, and an emoji,
+ * for Terminal, Ghostty and iTerm2: the shell each starts is in that
+ * directory exactly. kitty is too, unless the name holds a "$", which the
+ * core never hands it (src/core/vocabulary.js says why).
  *
- * Success means the request was handed to Terminal, not that a shell is ready.
- * A request still pending at the deadline may yet reach Terminal, so it is
- * reported as that -- never as a plain failure, which would invite a retry.
+ * Success means the request was handed to the app, not that a shell is ready.
+ * A request still pending at the deadline may yet reach it, so it is reported
+ * as that -- never as a plain failure, which would invite a retry.
  */
 
-function pending(directory, ran) {
+function isInstalled(bridge, id) {
+    const url = bridge.ns.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier(TERMINAL_BUNDLES[id]);
+
+    return !isNil(url);
+}
+
+function pending(name, directory, ran) {
     const cause = ran.lost === null
         ? `open had not finished after ${DEADLINE_SECONDS} seconds`
         : `open could not be followed (${ran.lost})`;
-    const said = [`Terminal was asked to open ${displayPath(directory)}, but ${cause}; ` +
+    const said = [`${name} was asked to open ${displayPath(directory)}, but ${cause}; ` +
         "the window may still appear. Nothing was retried."];
 
     if (!ran.stopped) {
@@ -1992,30 +2549,59 @@ function pending(directory, ran) {
     return [...said, ...ran.cleanup.map((failure) => `Stopping open also failed: ${failure}`)].join(" ");
 }
 
-function launch(bridge, files, path) {
+function launch(bridge, files, id, path) {
+    const { name } = terminalApp(id);
     const directory = absolutePath(path);
     const ran = supervise(bridge, files, {
         executable: OPEN,
-        arguments: ["-b", TERMINAL, directory],
-        failure: "Cannot launch Terminal at",
+        arguments: ["-b", TERMINAL_BUNDLES[id], directory],
+        failure: `Cannot launch ${name} at`,
         subject: directory
     });
 
     if (!ran.finished) {
-        throw new Error(pending(directory, ran));
+        throw new Error(pending(name, directory, ran));
     }
 
     if (ran.status !== 0) {
-        throw new Error(`Terminal could not be opened at ${displayPath(directory)} (open exit ${ran.status}). ` +
-            "Check that Terminal opens on its own.");
+        throw new Error(`${name} could not be opened at ${displayPath(directory)} (open exit ${ran.status}). ` +
+            `Check that ${name} opens on its own.`);
     }
 }
 
-function createLauncher(bridge, files) {
-    return (path) => launch(bridge, files, path);
+function createTerminalApps(bridge, files) {
+    return {
+        isInstalled: (id) => isInstalled(bridge, id),
+        launch: (id, path) => launch(bridge, files, id, path)
+    };
 }
 
-module.exports = { createLauncher };
+module.exports = { createTerminalApps };
+
+},
+
+"src/runtime/failure-report.js": function (require, module, exports) {
+"use strict";
+
+const { summaryOf, messageOf } = require("../core/errors.js");
+const { alert } = require("./standard-additions.js");
+
+/*
+ * A failed run, told to the person in Term At Target's own alert rather than
+ * left to Shortcuts, which shows a thrown error as text prefixed with
+ * "Error:" once for every layer it passed through (measured through
+ * `shortcuts run`). A failure a person can put right has its own summary as
+ * the heading; any other has the general one, which stays true even when a
+ * request may yet reach the terminal app.
+ */
+
+const GENERAL = "Term At Target couldn't finish";
+
+function createFailureReport(app) {
+    return (error) => alert(app, summaryOf(error) ?? GENERAL, messageOf(error));
+}
+
+module.exports = { createFailureReport };
 
 },
 
@@ -2023,12 +2609,17 @@ module.exports = { createLauncher };
 "use strict";
 
 const { createFoundation } = require("./foundation.js");
-const { createDialogs } = require("./dialogs.js");
-const { createLauncher } = require("./launcher.js");
+const { createQuestions } = require("./questions.js");
+const { createSettingsScreen } = require("./settings-screen.js");
+const { createPreferences } = require("./preferences.js");
+const { createTerminalApps } = require("./terminal-apps.js");
+const { createFailureReport } = require("./failure-report.js");
+const { PREFERENCES_DOMAIN } = require("./executables.js");
 
 /*
- * The real host: the macOS answers the planning core asks for, built from the
- * JXA globals once per run.
+ * The real host: the ports the core asks through, and the alert a failed run
+ * is told in, built from the JXA globals once per run. AppKit is imported for NSWorkspace, which says whether a
+ * terminal app is installed.
  */
 
 // A fresh Objective-C out-parameter. Why this is $() and not Ref() is in
@@ -2044,6 +2635,7 @@ function now() {
 
 function createMacHost() {
     ObjC.import("Foundation");
+    ObjC.import("AppKit");
 
     const app = Application.currentApplication();
 
@@ -2051,18 +2643,14 @@ function createMacHost() {
 
     const bridge = { ns: $, objc: ObjC, outParameter, now };
     const files = createFoundation(bridge);
-    const dialogs = createDialogs(app, files);
 
     return {
-        pathOf: files.pathOf,
-        inspect: files.inspect,
-        resolveAlias: files.resolveAlias,
-        readLink: files.readLink,
-        validateDirectory: files.validateDirectory,
-        chooseFolder: dialogs.chooseFolder,
-        chooseLink: dialogs.chooseLink,
-        chooseFolderMode: dialogs.chooseFolderMode,
-        launch: createLauncher(bridge, files)
+        files,
+        preferences: createPreferences(bridge, PREFERENCES_DOMAIN),
+        terminals: createTerminalApps(bridge, files),
+        questions: createQuestions(app, files),
+        settingsScreen: createSettingsScreen(app),
+        report: createFailureReport(app)
     };
 }
 
@@ -2076,31 +2664,51 @@ module.exports = { createMacHost };
 const { execute } = require("../core/workflow.js");
 const { createMacHost } = require("./host.js");
 const { createFoundation } = require("./foundation.js");
+const { createPreferences } = require("./preferences.js");
 const { supervise } = require("./supervise.js");
-const { createDialogs } = require("./dialogs.js");
+const { createQuestions } = require("./questions.js");
+const { createFailureReport } = require("./failure-report.js");
 const { presentName } = require("../core/present.js");
-const config = require("#config");
 
+/*
+ * A run that fails is told in an alert and then ends, so Shortcuts has
+ * nothing more to say about it. If the alert cannot be shown, the failure is
+ * thrown as itself, for Shortcuts to show instead.
+ */
 function run(input) {
-    return execute(input, config, createMacHost());
+    const host = createMacHost();
+
+    try {
+        return execute(input, host);
+    } catch (error) {
+        try {
+            host.report(error);
+        } catch {
+            throw error;
+        }
+
+        return [];
+    }
 }
 
 /*
  * createMacHost, and the parts under `forNativeTests`, are for the native
  * suite, which appends its own entry point to a temporary copy and drives the
- * real adapters: the package question (asked only by a dialog), the
- * supervisor with commands other than open, the questions themselves, shown
- * by Standard Additions with a time limit so nobody has to answer, and the
- * name presentation, whose Unicode tables are the engine's own. Nothing in a
- * production run reaches them except through run().
+ * real adapters: the package question (asked only by a dialog), saved
+ * settings in a domain of its own, so a person's own settings are never
+ * touched, the supervisor with commands other than open, the questions and
+ * the failure alert themselves, shown by Standard Additions with a time limit
+ * so nobody has to answer, and the name presentation, whose Unicode tables are the engine's
+ * own. Nothing in a production run reaches them except through run().
  */
-module.exports = { run, createMacHost, execute, forNativeTests: { createFoundation, supervise, createDialogs, presentName } };
+module.exports = {
+    run, createMacHost, execute,
+    forNativeTests: { createFoundation, createPreferences, supervise, createQuestions, createFailureReport, presentName }
+};
 
-},
-"#config": function (require, module) { module.exports = TERM_AT_TARGET_CONFIG; },
-"#metadata": function (require, module) { module.exports = {"title":"Term At Target","minimumMacOS":"12.3","runtimeLanguage":"ES2022","version":"1.0.1","license":"MPL-2.0","copyright":"2026 Ervins Strauhmanis"}; }
+}
     };
-    var graph = {"src/core/config.js":{},"src/core/errors.js":{},"src/core/paths.js":{},"src/core/invocation.js":{},"src/core/unicode-tables.js":{},"src/core/unicode-sets.js":{"./unicode-tables.js":"src/core/unicode-tables.js"},"src/core/writing.js":{"./unicode-sets.js":"src/core/unicode-sets.js"},"src/core/present.js":{"./paths.js":"src/core/paths.js","./writing.js":"src/core/writing.js"},"src/core/resolve.js":{"./paths.js":"src/core/paths.js"},"src/core/plan.js":{"./paths.js":"src/core/paths.js","./resolve.js":"src/core/resolve.js"},"src/core/workflow.js":{"./config.js":"src/core/config.js","./paths.js":"src/core/paths.js","./invocation.js":"src/core/invocation.js","./errors.js":"src/core/errors.js","./plan.js":"src/core/plan.js"},"src/runtime/executables.js":{},"src/runtime/bridge.js":{"../core/paths.js":"src/core/paths.js"},"src/runtime/attributes.js":{"../core/paths.js":"src/core/paths.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/links.js":{"../core/paths.js":"src/core/paths.js","../core/resolve.js":"src/core/resolve.js","./bridge.js":"src/runtime/bridge.js","./attributes.js":"src/runtime/attributes.js"},"src/runtime/given-path.js":{"../core/paths.js":"src/core/paths.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/foundation.js":{"./bridge.js":"src/runtime/bridge.js","./attributes.js":"src/runtime/attributes.js","./links.js":"src/runtime/links.js","./given-path.js":"src/runtime/given-path.js"},"src/runtime/dialogs.js":{"../core/present.js":"src/core/present.js"},"src/runtime/supervise.js":{"../core/errors.js":"src/core/errors.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/launcher.js":{"../core/paths.js":"src/core/paths.js","./executables.js":"src/runtime/executables.js","./supervise.js":"src/runtime/supervise.js"},"src/runtime/host.js":{"./foundation.js":"src/runtime/foundation.js","./dialogs.js":"src/runtime/dialogs.js","./launcher.js":"src/runtime/launcher.js"},"src/runtime/entry.js":{"../core/workflow.js":"src/core/workflow.js","./host.js":"src/runtime/host.js","./foundation.js":"src/runtime/foundation.js","./supervise.js":"src/runtime/supervise.js","./dialogs.js":"src/runtime/dialogs.js","../core/present.js":"src/core/present.js","#config":"#config"}};
+    var graph = {"src/core/vocabulary.js":{},"src/core/settings.js":{"./vocabulary.js":"src/core/vocabulary.js","./errors.js":"src/core/errors.js"},"src/core/errors.js":{},"src/core/paths.js":{"./errors.js":"src/core/errors.js"},"src/core/invocation.js":{},"src/core/unicode-tables.js":{},"src/core/unicode-sets.js":{"./unicode-tables.js":"src/core/unicode-tables.js"},"src/core/writing.js":{"./unicode-sets.js":"src/core/unicode-sets.js"},"src/core/present.js":{"./paths.js":"src/core/paths.js","./writing.js":"src/core/writing.js"},"src/core/resolve.js":{"./paths.js":"src/core/paths.js"},"src/core/plan.js":{"./paths.js":"src/core/paths.js","./resolve.js":"src/core/resolve.js","./vocabulary.js":"src/core/vocabulary.js"},"src/core/settings-editor.js":{"./settings.js":"src/core/settings.js"},"src/core/workflow.js":{"./paths.js":"src/core/paths.js","./invocation.js":"src/core/invocation.js","./errors.js":"src/core/errors.js","./plan.js":"src/core/plan.js","./vocabulary.js":"src/core/vocabulary.js","./settings.js":"src/core/settings.js","./settings-editor.js":"src/core/settings-editor.js"},"src/runtime/executables.js":{},"src/runtime/bridge.js":{"../core/paths.js":"src/core/paths.js"},"src/runtime/attributes.js":{"../core/paths.js":"src/core/paths.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/links.js":{"../core/paths.js":"src/core/paths.js","../core/errors.js":"src/core/errors.js","../core/resolve.js":"src/core/resolve.js","./bridge.js":"src/runtime/bridge.js","./attributes.js":"src/runtime/attributes.js"},"src/runtime/given-path.js":{"../core/paths.js":"src/core/paths.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/foundation.js":{"./bridge.js":"src/runtime/bridge.js","./attributes.js":"src/runtime/attributes.js","./links.js":"src/runtime/links.js","./given-path.js":"src/runtime/given-path.js"},"src/runtime/preferences.js":{"../core/settings.js":"src/core/settings.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/standard-additions.js":{"../core/errors.js":"src/core/errors.js"},"src/runtime/questions.js":{"../core/present.js":"src/core/present.js","../core/vocabulary.js":"src/core/vocabulary.js","./standard-additions.js":"src/runtime/standard-additions.js"},"src/runtime/settings-screen.js":{"../core/vocabulary.js":"src/core/vocabulary.js","../core/present.js":"src/core/present.js","../core/settings.js":"src/core/settings.js","./standard-additions.js":"src/runtime/standard-additions.js"},"src/runtime/supervise.js":{"../core/errors.js":"src/core/errors.js","./bridge.js":"src/runtime/bridge.js"},"src/runtime/terminal-apps.js":{"../core/paths.js":"src/core/paths.js","../core/vocabulary.js":"src/core/vocabulary.js","./bridge.js":"src/runtime/bridge.js","./executables.js":"src/runtime/executables.js","./supervise.js":"src/runtime/supervise.js"},"src/runtime/failure-report.js":{"../core/errors.js":"src/core/errors.js","./standard-additions.js":"src/runtime/standard-additions.js"},"src/runtime/host.js":{"./foundation.js":"src/runtime/foundation.js","./questions.js":"src/runtime/questions.js","./settings-screen.js":"src/runtime/settings-screen.js","./preferences.js":"src/runtime/preferences.js","./terminal-apps.js":"src/runtime/terminal-apps.js","./failure-report.js":"src/runtime/failure-report.js","./executables.js":"src/runtime/executables.js"},"src/runtime/entry.js":{"../core/workflow.js":"src/core/workflow.js","./host.js":"src/runtime/host.js","./foundation.js":"src/runtime/foundation.js","./preferences.js":"src/runtime/preferences.js","./supervise.js":"src/runtime/supervise.js","./questions.js":"src/runtime/questions.js","./failure-report.js":"src/runtime/failure-report.js","../core/present.js":"src/core/present.js"}};
     var cache = Object.create(null);
     function load(id) {
         if (Object.prototype.hasOwnProperty.call(cache, id)) { return cache[id].exports; }

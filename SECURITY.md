@@ -3,15 +3,19 @@
 Term At Target is a local directory launcher, not a sandbox, permission manager
 or command runner. Selected objects and their contents are never deliberately
 written by this script. macOS and filesystem services may perform their normal
-metadata/cache operations. Commands subsequently entered in Terminal are
-outside this action's boundary.
+metadata/cache operations. Commands subsequently entered in the terminal app
+are outside this action's boundary.
 
 ## Paths and launch
 
 The final directory is passed to /usr/bin/open as a distinct NSTask argument,
-with Terminal named by its bundle identifier, com.apple.Terminal, so no other
-application called Terminal can receive it. No shell parses it; no command is
-typed into an existing Terminal session. open reads and writes nothing but the
+with the terminal app named by its bundle identifier -- com.apple.Terminal,
+com.mitchellh.ghostty, com.googlecode.iterm2 or net.kovidgoyal.kitty -- so no other application with the same name can
+receive it. The identifiers are fixed in the script; a saved setting chooses
+between them and cannot name any other app. No shell parses the directory; no
+command is typed into an existing terminal session. kitty expands environment
+variables in the directory it is given (measured; command substitution and ~
+stay literal), so kitty is never handed a directory whose path contains "$". open reads and writes nothing but the
 null device. It is given 10 seconds, on a clock no wall-clock change moves;
 if it has not finished by then, or watching it fails, it is told to stop
 through its own task object -- never by pid, which could by then name another
@@ -36,13 +40,19 @@ transition, and an open exit status of zero does not prove a shell's actual
 working directory. Ordinary filesystem and Shortcuts access controls remain
 in effect; do not grant broad privileges to bypass a failure without diagnosis.
 
-## No state
+## Saved settings, and no other state
 
-The action writes nothing to disk: no lock, preference, cache or temporary
-file. The source gate refuses a filesystem-writing call anywhere in the
-shipped code, so this is checked rather than promised. Runs share nothing,
-so one run cannot block, corrupt or be blocked by another; two at once make
-two requests.
+The one thing the action writes is its settings, in the macOS preferences
+domain com.resoltico.TermAtTarget: which terminal app opens, and whether
+folders and links are asked about. It writes no file -- no lock, cache or
+temporary file. The source gate refuses a filesystem-writing call anywhere in
+the shipped code, and NSUserDefaults anywhere but the one module that saves the
+settings, so this is checked rather than promised.
+
+A saved value is read as data and must be one of the few each setting takes;
+anything else stops the run with a message naming the setting. Runs share
+nothing else, so one run cannot block, corrupt or be blocked by another; two
+at once make two requests, and a run reads the settings once, at its start.
 
 There is deliberately no run lock. Nothing is shared that needs protecting,
 and inside Shortcuts a lock cannot tell "another run holds it" from "locking

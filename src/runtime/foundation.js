@@ -18,6 +18,8 @@ function createFoundation(bridge) {
         resolveAlias: (path) => resolveAlias(bridge, path),
         readLink: (path) => readLink(bridge, path),
         pathOf: (value) => pathOf(bridge, value),
+        // The person's home folder, for showing paths inside it from "~".
+        home: () => String(bridge.objc.unwrap(bridge.ns.NSHomeDirectory())),
         validateDirectory: (path) => validateDirectory(bridge, path),
         isNil,
         nativeFailure: (operation, path, error) => nativeFailure(bridge, operation, path, error)

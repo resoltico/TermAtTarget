@@ -10,8 +10,8 @@ npm run quality
 
 `npm run quality` runs the whole portable gate without rebuilding, which is
 what CI does, so that a stale committed artifact fails instead of shipping.
-After changing `src/` or `config.json`, run `npm run build`, review the
-artifact diff, and run the gate again.
+After changing `src/`, run `npm run build`, review the artifact diff, and run
+the gate again.
 
 The native suite needs a Mac and is run separately:
 
@@ -20,17 +20,24 @@ npm run test:integration:macos
 ```
 
 Add `--dialogs` when a change touches a question: each is shown for a second
-by the real Standard Additions, with the options the artifact passes. Add
-`--terminal` when a change touches the launch: it opens one real Terminal
-window, checks where its shell is, and closes it. Add `--shortcuts` when a
+by the real Standard Additions, with the options the artifact passes. The
+settings lists cannot be dismissed on a timer, so a change to them is checked
+by hand (QA.md, Interactive acceptance). Add `--terminal` when a change
+touches the launch or the terminal apps: it opens one real window in each
+supported app that is installed, checks where its shell is, and closes it. Add `--shortcuts` when a
 change touches what the action is given or how it runs: it runs the artifact
 through Shortcuts itself, by both input routes. That needs the two harness
 shortcuts, built once with `node tests/integration/shortcuts/build.mjs` and
-added by opening each file it prints. Nothing else in the gate opens a window.
+added by opening each file it prints, and the app running the suite allowed
+under Privacy & Security > Accessibility: a refused run shows an alert, which
+the suite reads and dismisses as a person would. Nothing else in the gate opens a window.
 
-The action writes nothing to disk, and the gate refuses a filesystem-writing
-call anywhere under `src/`. Keep it that way: INSTALL.txt tells people there
-is nothing to remove.
+The action writes no file, and the gate refuses a filesystem-writing call
+anywhere under `src/`. Its settings are the one thing it writes, through
+NSUserDefaults, which the gate allows only in `src/runtime/preferences.js`.
+Keep it that way: INSTALL.txt tells people that domain is all there is to
+remove. The native suite and the Shortcuts harness save settings only in
+domains of their own, so running them never touches a person's settings.
 
 A unit test can only be handed the input a host was measured to give. When a
 host behaves in a way nobody measured -- Shortcuts wrapping its input, or
@@ -58,14 +65,29 @@ things go rather than merely passing or failing:
 
 ## Source layout
 
-`src/core/` decides: path rules, link resolution, the destination policy, and
-the run itself. It names nothing native and is tested in Node with nothing
-standing in for it.
+`src/core/` decides: the shared vocabulary (`src/core/vocabulary.js` -- the
+answers, the settings' values and the terminal apps), the settings, path rules,
+link resolution, the destination policy, and the run itself. It names nothing
+native and is tested in Node with nothing standing in for it. Wording shown to
+a person lives with the questions in `src/runtime/`; the meaning of each answer
+lives in the core, and a test fails if a value has no words.
 
-`src/runtime/` touches macOS: Foundation's answers about files, the dialogs,
-and the launch, which a deadline bounds. Each adapter takes the bridge (`ns`, `objc` and an
-out-parameter maker) as a value, so its tests hand it a fake. Every program the
-action runs is named in `src/runtime/executables.js` and nowhere else.
+`src/runtime/` touches macOS: Foundation's answers about files, the saved
+preferences, the questions and settings lists, and the launch, which a deadline
+bounds. The core asks through ports -- `files`, `preferences`, `terminals`,
+`questions` and `settingsScreen`, assembled in `src/runtime/host.js`. Each
+adapter takes the bridge (`ns`, `objc` and an out-parameter maker) as a value,
+so its tests hand it a fake. Every program the action runs, every terminal
+app's bundle identifier and the preferences domain are named in
+`src/runtime/executables.js` and nowhere else.
+
+To support another terminal app, add it to `src/core/vocabulary.js` and its
+bundle identifier to `src/runtime/executables.js`, then run the native suite
+with `--terminal` with the app installed: it must find the app's shell at the
+folder it was asked to open before the app can be listed. Measure it with
+`$NAME`, `$(...)`, backticks and `~` in folder names too: an app that expands
+any of them must say so in the vocabulary, as kitty's `readsVariables` does,
+and the core must refuse what it would misread.
 
 A new module must be listed in `tools/module-order.mjs`. The build refuses a
 module the list does not name, a require it cannot resolve, a cycle, and any
@@ -84,8 +106,8 @@ not what the data generates.
 Do not edit it. `dist/Term-At-Target.jxa` is generated from `src/` by
 `tools/bundle.mjs`: each module a scoped factory, the requires a declared
 graph, and a loader that serves only what the graph declares. The header
-quotes the name, version and licence, and `config.json` is inlined where a
-personal pasted copy can edit it.
+quotes the name, version and licence. Nothing in it is meant to be edited, so
+an installed copy is the released file byte for byte.
 
 `INSTALL.txt` ships with it, and is deliberately plain text rather than
 Markdown. It is a release asset, opened in a text editor, where `##` and

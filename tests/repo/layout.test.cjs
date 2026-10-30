@@ -2,8 +2,7 @@
 
 /*
  * What the repository is made of: no runtime dependency, a toolchain pinned
- * exactly, the configuration valid, and the documents a release ships present
- * and linked correctly.
+ * exactly, and the documents a release ships present and linked correctly.
  */
 
 const assert = require("node:assert/strict");
@@ -31,23 +30,6 @@ test("the development toolchain is pinned exactly, and the lockfile agrees", asy
     }
 
     assert.deepEqual(lock.packages[""].devDependencies, pkg.devDependencies);
-});
-
-test("the committed configuration is valid", async () => {
-    const { validateConfig } = require("../../src/core/config.js");
-
-    const config = JSON.parse(await read("config.json"));
-
-    assert.doesNotThrow(() => validateConfig(config));
-});
-
-test("Node resolves #metadata and #config to what the bundle embeds", async () => {
-    // The artifact inlines the object tools/repository.mjs derives; Node reads
-    // tools/metadata.cjs through package.json "imports". They must be one.
-    const { metadata } = await import("../../tools/repository.mjs");
-
-    assert.deepEqual(require("#metadata"), await metadata());
-    assert.deepEqual(require("#config"), JSON.parse(await read("config.json")));
 });
 
 test("the documents a release carries are all present", async () => {

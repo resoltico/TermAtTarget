@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 import { read, root, metadata, artifactName, filesBelow } from "./repository.mjs";
 import { modules } from "./module-order.mjs";
@@ -14,11 +13,6 @@ import { dependencies, verifyGraph } from "./module-graph.mjs";
  * The builder and the verifier both render through here, so they cannot
  * disagree about what the artifact should be.
  */
-
-const require = createRequire(import.meta.url);
-const { validateConfig } = require("../src/core/config.js");
-
-const CONFIG_INDENT = 4;
 
 export function digestOf(text) {
     return createHash("sha256").update(text).digest("hex");
@@ -46,21 +40,18 @@ async function factoriesOf(base) {
 
 function headerFor(meta, license) {
     return `/*\n${meta.title} ${meta.version}\n` +
-        "Generated from src/. Edit config.json and rebuild for source-controlled changes.\n" +
-        "For a personal pasted copy only, edit TERM_AT_TARGET_CONFIG below.\n" +
+        "Generated from src/; do not edit. Settings are changed by running it with nothing selected.\n" +
         "Native macOS verification status is recorded in QA.md. No Node runtime required.\n\n" +
         `Copyright (c) ${meta.copyright}\nSPDX-License-Identifier: MPL-2.0\n` +
         `Source Code Form: https://github.com/resoltico/TermAtTarget/tree/v${meta.version}\n\n` +
         `${license.trimEnd()}\n*/\n\n`;
 }
 
-function loaderFor(factories, meta) {
+function loaderFor(factories) {
     return `var __TermAtTarget = (function () {
     "use strict";
     var factories = {
-${factories.sections.join(",\n\n")},
-"#config": function (require, module) { module.exports = TERM_AT_TARGET_CONFIG; },
-"#metadata": function (require, module) { module.exports = ${JSON.stringify(meta)}; }
+${factories.sections.join(",\n\n")}
     };
     var graph = ${JSON.stringify(factories.graph)};
     var cache = Object.create(null);
@@ -91,11 +82,9 @@ export async function renderRelease(base = root) {
     await assertManifest(base);
 
     const meta = await metadata(base);
-    const config = validateConfig(JSON.parse(await read("config.json", base)));
     const factories = await factoriesOf(base);
 
-    return `${headerFor(meta, await read("LICENSE", base))}` +
-        `var TERM_AT_TARGET_CONFIG = ${JSON.stringify(config, null, CONFIG_INDENT)};\n\n${loaderFor(factories, meta)}`;
+    return `${headerFor(meta, await read("LICENSE", base))}${loaderFor(factories)}`;
 }
 
 export function renderManifest(artifact) {

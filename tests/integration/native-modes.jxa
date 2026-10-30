@@ -1,6 +1,7 @@
-/* The native suite's two slower modes, appended to the generated artifact
- * before native-body.jxa: the supervisor against real processes, and each
- * question shown by the real Standard Additions.
+/* The native suite's modes beyond its main checks, appended to the generated
+ * artifact before native-body.jxa: the supervisor against real processes,
+ * each question shown by the real Standard Additions, the saved settings in a
+ * domain of the suite's own, and the name presentation.
  */
 function superviseMode(bridge, files, base) {
     "use strict";
@@ -34,18 +35,50 @@ function dialogsMode(files, base) {
     "use strict";
     const app = Application.currentApplication();
     app.includeStandardAdditions = true;
-    const timed = { displayDialog: function (text, options) {
-        return app.displayDialog(text, Object.assign({}, options, { givingUpAfter: 1 }));
-    } };
-    const dialogs = __TermAtTarget.forNativeTests.createDialogs(timed, files);
+    const timed = {
+        displayDialog: function (text, options) {
+            return app.displayDialog(text, Object.assign({}, options, { givingUpAfter: 1 }));
+        },
+        displayAlert: function (text, options) {
+            return app.displayAlert(text, Object.assign({}, options, { givingUpAfter: 1 }));
+        }
+    };
+    const questions = __TermAtTarget.forNativeTests.createQuestions(timed, files)("Terminal");
     const refusal = function (ask) {
         try { ask(); } catch (error) { return String(error.message); }
         return null;
     };
     return {
-        folder: refusal(function () { dialogs.chooseFolderMode(base + "/Demo.app", null); }),
-        link: refusal(function () { dialogs.chooseLink(base + "/relative-link", "symlink"); })
+        start: refusal(function () { questions.start(); }),
+        folder: refusal(function () { questions.chooseFolderMode(base + "/Demo.app", null); }),
+        link: refusal(function () { questions.chooseLink(base + "/relative-link", "symlink"); }),
+        alert: refusal(function () { __TermAtTarget.forNativeTests.createFailureReport(timed)(new Error("A failure, shown for a second.")); })
     };
+}
+
+/* The saved settings, in a preferences domain the suite owns and removes, so
+ * a person's own are never read or written. "save" writes one value the way
+ * the action does and one number the way `defaults -int` would, and plants a
+ * `terminal` in osascript's own domain, which a named domain's lookup would
+ * also read; then reads back. "load" reads them in a later process, after the
+ * saving one has ended, so a value that never left its process fails, and
+ * removes the planted value (only if it is still the marker).
+ */
+function preferencesMode(bridge, domain, step) {
+    "use strict";
+    const marker = "termattarget-native-check";
+    const own = $.NSUserDefaults.standardUserDefaults;
+    const preferences = __TermAtTarget.forNativeTests.createPreferences(bridge, domain);
+    if (step === "save") {
+        preferences.save("folder", "parent");
+        $.NSUserDefaults.alloc.initWithSuiteName(domain).setIntegerForKey(3, "link");
+        own.setObjectForKey($(marker), "terminal");
+    }
+    const loaded = preferences.load();
+    if (step === "load" && ObjC.unwrap(own.stringForKey("terminal")) === marker) {
+        own.removeObjectForKey("terminal");
+    }
+    return loaded;
 }
 
 /* Each name, as the engine osascript runs presents it; compared by the suite

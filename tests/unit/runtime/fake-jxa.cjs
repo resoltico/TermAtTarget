@@ -2,7 +2,7 @@
 
 /*
  * The JXA globals the host is assembled from -- ObjC, $ and Application --
- * as far as assembling it and taking one step with each part touches them.
+ * as far as assembling it and taking one step with each port touches them.
  *
  * $ is callable, as it is in JXA, and every placeholder it makes is kept, so a
  * test can see that an out-parameter came from it. Loaded fresh for each use,
@@ -35,6 +35,15 @@ function namespace(seen) {
         NSFileHandle: { fileHandleWithNullDevice: "null-device" },
         // A launch macOS refuses, with nothing said about why.
         NSTask: { alloc: { init: { launchAndReturnError: () => false } } },
+        // Preferences with nothing saved, each domain read remembered by name.
+        NSUserDefaults: {
+            standardUserDefaults: {
+                persistentDomainForName(domain) {
+                    seen.domains.push(domain);
+                    return { isNil: () => true };
+                }
+            }
+        },
         NSFileManager: {
             defaultManager: {
                 attributesOfItemAtPathError(where, error) {
@@ -47,7 +56,7 @@ function namespace(seen) {
 }
 
 function jxaWorld() {
-    const seen = { imports: [], outParameters: [], app: null, clockReads: 0 };
+    const seen = { imports: [], outParameters: [], app: null, clockReads: 0, domains: [] };
     const objc = {
         import: (name) => seen.imports.push(name),
         unwrap: (value) => value,

@@ -8,13 +8,12 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { mkdtemp, mkdir, cp, writeFile, rm } = require("node:fs/promises");
+const { mkdtemp, mkdir, cp, writeFile, readFile, rm } = require("node:fs/promises");
 const path = require("node:path");
 const { tmpdir } = require("node:os");
-const { DEFAULTS } = require("../../helpers.cjs");
 
 const ROOT = path.resolve(__dirname, "../../..");
-const COPIED = ["src", "package.json", "config.json", "LICENSE"];
+const COPIED = ["src", "package.json", "LICENSE"];
 
 // A copy whose dist is freshly built from it, so the one change made after is
 // the only thing wrong with it -- whatever state the committed dist is in.
@@ -68,11 +67,11 @@ test("an edited manifest is refused", async () => {
     );
 });
 
-test("changed configuration makes the committed artifact stale", async () => {
+test("a changed source module makes the committed artifact stale", async () => {
     const { checkDist } = await load();
-    const changed = `${JSON.stringify({ ...DEFAULTS, defaultFolderAction: "LEVEL" })}\n`;
+    const changed = (await readFile(path.join(ROOT, "src/core/vocabulary.js"), "utf8")).replace("\"Ghostty\"", "\"Ghost\"");
 
-    await assert.rejects(checkDist(await copyWith("config.json", changed)), /dist is stale/u);
+    await assert.rejects(checkDist(await copyWith("src/core/vocabulary.js", changed)), /dist is stale/u);
 });
 
 test("a source module the manifest does not list stops the render", async () => {
@@ -82,11 +81,4 @@ test("a source module the manifest does not list stops the render", async () => 
         checkDist(await copyWith("src/core/extra.js", "\"use strict\";\n")),
         /^Error: The production source tree and module manifest disagree\.$/u
     );
-});
-
-test("invalid configuration stops the render", async () => {
-    const { checkDist } = await load();
-    const invalid = JSON.stringify({ ...DEFAULTS, defaultLinkAction: "typo" });
-
-    await assert.rejects(checkDist(await copyWith("config.json", invalid)), /defaultLinkAction must be/u);
 });

@@ -27,13 +27,18 @@ const FORBIDDEN = [
 const NATIVE_NAMES = /\b(?:ObjC|Application|NSTask|NSFileManager|Ref)\b/u;
 
 /*
- * The action writes nothing: no lock, no preference, no temporary file. That
- * is a property of the product (INSTALL.txt says there is nothing to remove),
- * so the calls that would write are refused by name.
+ * The action writes no file: no lock, no cache, no temporary file. Its saved
+ * settings are the one thing it writes, through macOS preferences, from the
+ * one module that owns them -- INSTALL.txt says that domain is all there is to
+ * remove -- so the calls that would write a file are refused by name, and
+ * preferences are refused anywhere else.
  */
 const WRITE_NAMES = "mkdir|rmdir|unlink|fchmod|chmod|flock|rename|writeToFile\\w*|writeToURL\\w*|createFileAtPath\\w*|createDirectoryAtPath\\w*|createDirectoryAtURL\\w*|createSymbolicLink\\w*|removeItemAt\\w*|moveItemAt\\w*|copyItemAt\\w*|linkItemAt\\w*|setAttributes\\w*|trashItemAt\\w*|fileHandleForWriting\\w*|fileHandleForUpdating\\w*";
 // A call or a member access, so prose that says "rename" is not a write.
 const WRITES = new RegExp(`(?<=\\.)(?:${WRITE_NAMES})\\b|\\b(?:${WRITE_NAMES})(?=\\s*\\()`, "u");
+
+const PREFERENCES = /\bNSUserDefaults\b/u;
+const PREFERENCES_MODULE = "src/runtime/preferences.js";
 
 export function writesIn(content) {
     return WRITES.exec(content)?.[0] ?? null;
@@ -61,8 +66,15 @@ function checkWrites(relativePath, content) {
 
     if (write !== null) {
         throw new Error(
-            `${relativePath}: calls ${write}; the action writes nothing to disk, ` +
-            "and INSTALL.txt tells people there is nothing to remove"
+            `${relativePath}: calls ${write}; the action writes no file, ` +
+            "and INSTALL.txt tells people its settings are all there is to remove"
+        );
+    }
+
+    if (relativePath !== PREFERENCES_MODULE && PREFERENCES.test(content)) {
+        throw new Error(
+            `${relativePath}: names NSUserDefaults; the saved settings are written ` +
+            `only by ${PREFERENCES_MODULE}, so what the action writes is in one place`
         );
     }
 }

@@ -1,8 +1,8 @@
 {
   "name": "term-at-target-macos",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "private": true,
-  "description": "A dependency-free JXA Shortcuts action that opens Terminal at a deliberate filesystem location",
+  "description": "A dependency-free JXA Shortcuts action that opens a terminal app at a deliberate filesystem location",
   "license": "MPL-2.0",
   "author": "Ervins Strauhmanis",
   "homepage": "https://github.com/resoltico/TermAtTarget",
@@ -11,11 +11,7 @@
     "url": "git+https://github.com/resoltico/TermAtTarget.git"
   },
   "engines": {
-    "node": ">=26.8.1"
-  },
-  "imports": {
-    "#config": "./config.json",
-    "#metadata": "./tools/metadata.cjs"
+    "node": ">=26.13.0"
   },
   "termAtTarget": {
     "title": "Term At Target",
@@ -37,10 +33,10 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@stryker-mutator/core": "10.0.0",
-    "@stryker-mutator/tap-runner": "10.0.0",
-    "acorn": "8.18.0",
-    "eslint": "10.11.0",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/tap-runner": "10.1.1",
+    "acorn": "8.19.0",
+    "eslint": "10.13.0",
     "fast-check": "4.10.2"
   },
   "copyright": "2026 Ervins Strauhmanis"

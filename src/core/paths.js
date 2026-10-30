@@ -1,5 +1,7 @@
 "use strict";
 
+const { refusal } = require("./errors.js");
+
 /*
  * A path is text the filesystem can hold, and an unpaired UTF-16 surrogate is
  * not text. Iterating a string yields a well-formed pair as one character of
@@ -92,7 +94,8 @@ function selectedPath(input, pathOf) {
         return null;
     }
     if (items.length !== 1) {
-        throw new Error("Term At Target opens one selected item at a time. Select one file or folder and run it again.");
+        throw refusal("Select one item at a time",
+            "Term At Target opens one selected item at a time. Select one file or folder and run it again.");
     }
     const text = pathText(pathOf(items[0]));
     const path = absolutePath(text);

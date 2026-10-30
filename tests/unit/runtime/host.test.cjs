@@ -1,8 +1,8 @@
 "use strict";
 
 /*
- * The real host, assembled from the JXA globals: every answer the planning
- * core asks for, each wired to the adapter that gives it.
+ * The real host, assembled from the JXA globals: every port the core asks
+ * through, each wired to the adapter that gives it.
  */
 
 const assert = require("node:assert/strict");
@@ -24,30 +24,47 @@ function inWorld(action) {
     return world.seen;
 }
 
-test("Foundation is imported and dialogs get Standard Additions", () => {
+test("Foundation and AppKit are imported, and the questions get Standard Additions", () => {
     const seen = inWorld(() => undefined);
 
-    assert.deepEqual(seen.imports.slice(0, 1), ["Foundation"]);
+    assert.deepEqual(seen.imports, ["Foundation", "AppKit"]);
     assert.equal(seen.app.includeStandardAdditions, true);
 });
 
-test("the host answers every question the planning core asks, and holds no lock", () => {
+test("the host has every port the core asks through, each with what the core calls", () => {
     inWorld((host) => {
-        assert.deepEqual(Object.keys(host).sort(), [
-            "chooseFolder", "chooseFolderMode", "chooseLink", "inspect",
-            "launch", "pathOf", "readLink", "resolveAlias", "validateDirectory"
-        ]);
+        assert.deepEqual(Object.keys(host), ["files", "preferences", "terminals", "questions", "settingsScreen", "report"]);
+        assert.equal(typeof host.report, "function");
 
-        for (const [name, value] of Object.entries(host)) {
-            assert.equal(typeof value, "function", name);
+        const ports = {
+            files: ["pathOf", "inspect", "resolveAlias", "readLink", "validateDirectory"],
+            preferences: ["load", "save"],
+            terminals: ["isInstalled", "launch"],
+            questions: ["start", "chooseFolder", "chooseFolderMode", "chooseLink"],
+            settingsScreen: ["pickSetting", "pickValue"]
+        };
+        const made = { ...host, questions: host.questions("Terminal") };
+
+        for (const [port, names] of Object.entries(ports)) {
+            for (const name of names) {
+                assert.equal(typeof made[port][name], "function", `${port}.${name}`);
+            }
         }
     });
+});
+
+test("the settings are read from the action's own preferences domain", () => {
+    const seen = inWorld((host) => {
+        assert.deepEqual(host.preferences.load(), { terminal: null, folder: null, link: null });
+    });
+
+    assert.deepEqual(seen.domains, ["com.resoltico.TermAtTarget"]);
 });
 
 test("an out-parameter is made with $(), never Ref()", () => {
     // Measured on macOS: an NSError read back out of a Ref() crashes osascript.
     const seen = inWorld((host) => {
-        assert.throws(() => host.inspect("/nowhere"), /^Error: Cannot inspect "\/nowhere": /u);
+        assert.throws(() => host.files.inspect("/nowhere"), /^Error: Cannot inspect "\/nowhere": /u);
     });
 
     assert.equal(seen.attributesError, seen.outParameters[0], "the error went to a $() placeholder");
@@ -55,8 +72,8 @@ test("an out-parameter is made with $(), never Ref()", () => {
 
 test("each call makes its own out-parameter", () => {
     const seen = inWorld((host) => {
-        assert.throws(() => host.inspect("/a"), /Cannot inspect/u);
-        assert.throws(() => host.inspect("/b"), /Cannot inspect/u);
+        assert.throws(() => host.files.inspect("/a"), /Cannot inspect/u);
+        assert.throws(() => host.files.inspect("/b"), /Cannot inspect/u);
     });
 
     assert.equal(seen.outParameters.length, 2);
@@ -67,7 +84,7 @@ test("a launch is timed on the Mac's uptime clock, and a refused launch says so"
     // Uptime is monotonic: no change to the wall clock can move a deadline.
     const seen = inWorld((host) => {
         assert.throws(
-            () => host.launch("/work"),
+            () => host.terminals.launch("terminal", "/work"),
             /^Error: Cannot launch Terminal at "\/work": macOS did not provide further details\.$/u
         );
     });

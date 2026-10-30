@@ -24,13 +24,17 @@ test("an alias is resolved without UI and without mounting, both at once", () =>
     assert.deepEqual(calls.at(-1), ["resolve", "/alias", 768]);
 });
 
-test("an alias whose target cannot be found says why", () => {
+test("an alias whose original cannot be found says so, and what would work instead", () => {
     const { bridge } = fakeFoundation({ "/alias": { targetError: true } });
 
-    assert.throws(
-        () => resolveAlias(bridge, "/alias"),
-        /^Error: Cannot resolve alias target for "\/alias": target error \(NSCocoaErrorDomain 260\)$/u
-    );
+    assert.throws(() => resolveAlias(bridge, "/alias"), (error) => {
+        assert.equal(error.summary, "The alias's original can't be found");
+        assert.equal(error.message, "Cannot resolve alias target for \"/alias\": target error (NSCocoaErrorDomain 260). " +
+            "Choose Open Where It Is to open the folder the alias is in, or set Finder aliases to Open where it is in the settings.");
+        assert.deepEqual(error.native, { operation: "Cannot resolve alias target for", path: "/alias", domain: "NSCocoaErrorDomain", code: 260 });
+
+        return true;
+    });
 });
 
 test("an alias to something that is not a local file is refused", () => {

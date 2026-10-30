@@ -3,25 +3,14 @@ import { modules } from "./module-order.mjs";
 
 /*
  * What each module requires, and whether those requires make a graph the
- * loader can serve: only listed local modules and the two embedded values,
- * nothing from the portable core into the host, and no cycles.
+ * loader can serve: only listed local modules, nothing from the portable core
+ * into the host, and no cycles.
  */
 
 const REQUIRE_CALL = /\brequire\s*\(/gu;
 const LITERAL_REQUIRE = /\brequire\s*\(\s*(?<quote>["'])(?<specifier>[^"']+)\k<quote>\s*\)/gu;
-// Resolved by Node through package.json "imports", and inlined by the loader.
-const EMBEDDED = new Set(["#config", "#metadata"]);
-
 function isCore(id) {
     return id.startsWith("src/core/");
-}
-
-function embedded(specifier, id) {
-    if (isCore(id)) {
-        throw new Error("The portable core may not read embedded application configuration.");
-    }
-
-    return specifier;
 }
 
 function local(specifier, id) {
@@ -51,7 +40,7 @@ export function dependencies(source, id) {
     }
 
     return Object.fromEntries(literal.map(({ groups: { specifier } }) =>
-        [specifier, EMBEDDED.has(specifier) ? embedded(specifier, id) : local(specifier, id)]));
+        [specifier, local(specifier, id)]));
 }
 
 export function verifyGraph(graph) {
@@ -59,7 +48,7 @@ export function verifyGraph(graph) {
     const done = new Set();
 
     function visit(id) {
-        if (EMBEDDED.has(id) || done.has(id)) {
+        if (done.has(id)) {
             return;
         }
 

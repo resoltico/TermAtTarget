@@ -1,4 +1,4 @@
-TERM AT TARGET 1.0.1 — SHORTCUTS INSTALLATION
+TERM AT TARGET 2.0.0 — SHORTCUTS INSTALLATION
 
 Source, releases and build attestation:
 
@@ -39,6 +39,9 @@ Install the Quick Action
    differs from its target. Check that the original path, not a temporary copy,
    reaches the action. QA.md lists the fuller checks.
 
+Pasting a newer version over the old one keeps your settings: they are not
+part of the script.
+
 Nothing needs to follow the action: it returns no result.
 
 Grant only the access needed for selected locations when macOS or Shortcuts
@@ -47,28 +50,50 @@ asks; do not enable Full Disk Access merely as a generic installation step.
 Settings
 ========
 
-Near the top of the script, TERM_AT_TARGET_CONFIG contains:
+Run the shortcut with nothing selected -- from the Shortcuts app, the menu bar
+or its keyboard shortcut -- and choose Settings. Pick a setting, choose its new
+value, and pick Done when finished:
 
-    defaultFolderAction: ASK / INSIDE / LEVEL
-    defaultLinkAction:   ASK / TARGET / LINK
+    Terminal app:                       Terminal / Ghostty / iTerm2 / kitty
+    When a folder is selected:          Ask each time / Open inside /
+                                        Open in parent
+    When a Finder alias is selected:    Ask each time / Follow the alias /
+                                        Open where it is
 
-Leave ASK to choose each time. LEVEL means the parent folder. TARGET follows a
-Finder alias or symbolic link to where it points; LINK opens the folder the
-link itself is in.
-Keep values quoted as JavaScript strings. To maintain source-controlled changes,
-edit config.json in the project and rebuild instead of editing only dist.
+Until changed, Terminal opens and every choice is asked. Ghostty, iTerm2 and
+kitty are offered once installed, whether from their own websites or with
+Homebrew -- either way it is the same app:
+
+    brew install --cask ghostty
+    brew install --cask iterm2
+    brew install --cask kitty
+
+Open a newly installed app once from Applications before choosing it: macOS
+asks before an app downloaded from the Internet first opens. kitty reads "$"
+in a folder's path as a variable, so a folder whose path contains "$" is
+refused rather than opened in kitty somewhere else.
+
+Shortcuts hands over where a selected symbolic link leads, never the link
+itself, so the alias setting applies to Finder aliases.
+
+The settings are saved in macOS preferences, in the domain
+com.resoltico.TermAtTarget. The script itself is never edited.
 
 Removal
 =======
 
-Disable and delete the shortcut and remove any assigned keyboard shortcut.
-That is all: there is no installed executable, preference, service or helper
-app, and the action writes nothing to disk.
+Disable and delete the shortcut and remove any assigned keyboard shortcut,
+then remove the saved settings:
+
+    defaults delete com.resoltico.TermAtTarget
+
+That is all: there is no installed executable, service or helper app, and the
+action writes nothing else.
 
 License
 ========
 
 Mozilla Public License 2.0. Copyright (c) 2026 Ervins Strauhmanis.
 The license is included in LICENSE and in the script header.
-The matching source is at https://github.com/resoltico/TermAtTarget/tree/v1.0.1
+The matching source is at https://github.com/resoltico/TermAtTarget/tree/v2.0.0
 and in the source archive provided with this release.
