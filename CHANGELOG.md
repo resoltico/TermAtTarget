@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-30
+
+- The released script is minified with comments stripped, about 49 KB instead of 107 KB; behaviour is unchanged, and the sources are at the address in its header.
+- The script's header is MPL's per-file notice with its source address instead of the full licence, which ships as the release's `LICENSE`; the Unicode data notice is kept at its end.
+- Contributors build with esbuild (pinned 0.28.2) and need no module list: every module under `src/` must be reached from the entry, and the graph rules are checked first.
+- npm is pinned to 12.2.1 (`packageManager`, `engines.npm`), and CI installs that npm; the Quality workflow also runs weekly to surface runner and actionlint drift.
+- The gate parses the core for macOS globals instead of matching words, and requires README and INSTALL.txt to list every setting and value in the settings screen's words.
+
 ## [2.0.0] - 2026-10-30
 
 - `config.json` and `TERM_AT_TARGET_CONFIG` are removed and 1.x choices are not carried over; set them once in the new settings, as [README.md](README.md#settings) describes.

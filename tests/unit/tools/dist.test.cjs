@@ -13,7 +13,7 @@ const path = require("node:path");
 const { tmpdir } = require("node:os");
 
 const ROOT = path.resolve(__dirname, "../../..");
-const COPIED = ["src", "package.json", "LICENSE"];
+const COPIED = ["src", "package.json"];
 
 // A copy whose dist is freshly built from it, so the one change made after is
 // the only thing wrong with it -- whatever state the committed dist is in.
@@ -74,11 +74,20 @@ test("a changed source module makes the committed artifact stale", async () => {
     await assert.rejects(checkDist(await copyWith("src/core/vocabulary.js", changed)), /dist is stale/u);
 });
 
-test("a source module the manifest does not list stops the render", async () => {
+test("a source module nothing reaches stops the render", async () => {
     const { checkDist } = await load();
 
     await assert.rejects(
         checkDist(await copyWith("src/core/extra.js", "\"use strict\";\n")),
-        /^Error: The production source tree and module manifest disagree\.$/u
+        /^Error: Source modules the bundle does not reach: src\/core\/extra\.js$/u
+    );
+});
+
+test("a module whose requires break the graph rules stops the render before anything is built", async () => {
+    const { checkDist } = await load();
+
+    await assert.rejects(
+        checkDist(await copyWith("src/core/extra.js", "\"use strict\";\nrequire(\"../runtime/host.js\");\n")),
+        /^Error: The portable core may not import a host adapter\.$/u
     );
 });

@@ -17,9 +17,8 @@ import { assertClean } from "./document-hygiene.mjs";
  * read, not computed.
  */
 
-// INSTALL.txt ships in the release and LICENSE is quoted into the artifact's
-// header, so both are held to the same hygiene as the Markdown even though
-// neither is Markdown.
+// INSTALL.txt and LICENSE both ship in the release, so both are held to the
+// same hygiene as the Markdown even though neither is Markdown.
 const PLAIN_DOCUMENTS = new Set(["INSTALL.txt", "LICENSE"]);
 const MARKDOWN = /\.md$/u;
 const HEADING = /^(?<hashes>#{1,6}) \S/u;

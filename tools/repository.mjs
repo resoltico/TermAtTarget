@@ -59,5 +59,5 @@ export async function metadata(base = root) {
         throw new Error("package.json must provide a valid release version.");
     }
 
-    return { ...pkg.termAtTarget, version: pkg.version, license: pkg.license, copyright: pkg.copyright };
+    return { ...pkg.termAtTarget, version: pkg.version, license: pkg.license, copyright: pkg.copyright, homepage: pkg.homepage };
 }

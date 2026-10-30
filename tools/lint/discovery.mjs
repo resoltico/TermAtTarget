@@ -1,6 +1,5 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { modules } from "../module-order.mjs";
 import { root } from "../repository.mjs";
 
 /*
@@ -69,13 +68,12 @@ export async function walk(directory, base = root, wanted = isSourceFile) {
  * Every file the gate is responsible for.
  *
  * Discovered rather than listed, and recursive, so a new module or a new
- * subdirectory cannot quietly escape the checks. The runtime modules come
- * from the manifest the bundle is built from, and root-level configuration is
+ * subdirectory cannot quietly escape the checks. Root-level configuration is
  * included explicitly: it is source too.
  */
 export async function lintableFiles() {
     return [
-        ...modules,
+        ...await walk("src"),
         ...await walk("tools"),
         ...await walk("tests"),
         "eslint.config.mjs"

@@ -11,7 +11,8 @@ function packageJson(overrides = {}) {
     return JSON.stringify({
         name: "project",
         version: "1.2.3",
-        engines: { node: ">=26.8.1" },
+        engines: { node: ">=26.8.1", npm: ">=12.2.1" },
+        packageManager: "npm@12.2.1",
         homepage: "https://github.com/someone/Project",
         repository: { type: "git", url: "git+https://github.com/someone/Project.git" },
         termAtTarget: { runtimeLanguage: "ES2022", minimumMacOS: "12.3" },

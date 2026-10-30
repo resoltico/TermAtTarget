@@ -1,3 +1,5 @@
+import { parse } from "acorn";
+
 /*
  * What the shipped code may reach for, and what the portable core may not.
  *
@@ -24,7 +26,12 @@ const FORBIDDEN = [
     [/(?<![\w$.])Buffer\./u, "Node's Buffer"]
 ];
 
-const NATIVE_NAMES = /\b(?:ObjC|Application|NSTask|NSFileManager|Ref)\b/u;
+/*
+ * What JXA puts in a script's global scope to reach macOS. Found by parsing,
+ * as identifiers the code actually uses -- not as words, which a comment, a
+ * string or a property named the same would also be.
+ */
+const HOST_GLOBALS = new Set(["ObjC", "Application", "Ref", "Path", "Progress", "Library", "$", "globalThis"]);
 
 /*
  * The action writes no file: no lock, no cache, no temporary file. Its saved
@@ -79,12 +86,45 @@ function checkWrites(relativePath, content) {
     }
 }
 
-function checkPortable(relativePath, content) {
-    const native = NATIVE_NAMES.exec(content);
+// A name used as a value: not a property after a dot, nor a key in an object literal.
+function isReference(node, parent, key) {
+    return !(parent?.type === "MemberExpression" && key === "property" && !parent.computed) &&
+        !(parent?.type === "Property" && key === "key" && !parent.computed);
+}
 
-    if (relativePath.startsWith("src/core/") && native) {
+// A node's child nodes, each with the key it hangs from.
+function childrenOf(node) {
+    return Object.entries(node).flatMap(([key, value]) => (Array.isArray(value) ? value : [value])
+        .filter((child) => child !== null && typeof child === "object" && typeof child.type === "string")
+        .map((child) => [key, child]));
+}
+
+export function hostGlobalIn(node, parent = null, key = null) {
+    if (node.type === "Identifier" && HOST_GLOBALS.has(node.name) && isReference(node, parent, key)) {
+        return node.name;
+    }
+
+    for (const [childKey, child] of childrenOf(node)) {
+        const found = hostGlobalIn(child, node, childKey);
+
+        if (found !== null) {
+            return found;
+        }
+    }
+
+    return null;
+}
+
+function checkPortable(relativePath, content) {
+    if (!relativePath.startsWith("src/core/")) {
+        return;
+    }
+
+    const native = hostGlobalIn(parse(content, { ecmaVersion: "latest", sourceType: "script" }));
+
+    if (native !== null) {
         throw new Error(
-            `${relativePath}: names ${native[0]}; the core is portable, and ` +
+            `${relativePath}: uses ${native}; the core is portable, and ` +
             "everything that touches macOS belongs in src/runtime/"
         );
     }

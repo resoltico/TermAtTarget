@@ -89,9 +89,13 @@ folder it was asked to open before the app can be listed. Measure it with
 any of them must say so in the vocabulary, as kitty's `readsVariables` does,
 and the core must refuse what it would misread.
 
-A new module must be listed in `tools/module-order.mjs`. The build refuses a
-module the list does not name, a require it cannot resolve, a cycle, and any
-require from the core into the runtime.
+A new module needs no list: the build finds every module under `src/`, and
+refuses one the bundle does not reach from `src/runtime/entry.js`, a require
+that is not a literal relative path to a module there, a cycle, and any
+require from the core into the runtime. The core may not use anything JXA
+puts in scope to reach macOS (`ObjC`, `$`, `Application`, `Path` and the
+rest); the gate parses each core module to check, so naming them in a comment
+or a string is fine.
 
 ## Unicode data
 
@@ -104,10 +108,14 @@ not what the data generates.
 ## The released artifact
 
 Do not edit it. `dist/Term-At-Target.jxa` is generated from `src/` by
-`tools/bundle.mjs`: each module a scoped factory, the requires a declared
-graph, and a loader that serves only what the graph declares. The header
-quotes the name, version and licence. Nothing in it is meant to be edited, so
-an installed copy is the released file byte for byte.
+`tools/bundle.mjs`, which bundles it with esbuild for macOS 12.3's engine
+(`safari15.4`): whitespace and comments stripped, names kept, as
+ImageFilesToPDF does. Its header is MPL's per-file notice, the version's
+source address and the macOS floor; the full licence ships as the release's
+`LICENSE`. The one comment kept is the Unicode data notice, which
+`tools/unicode/tables.mjs` writes as a `/*! ... */` comment so that it travels
+with the tables, at the end of the file. Nothing in it is meant to be edited,
+so an installed copy is the released file byte for byte.
 
 `INSTALL.txt` ships with it, and is deliberately plain text rather than
 Markdown. It is a release asset, opened in a text editor, where `##` and
@@ -140,11 +148,15 @@ installed package; `tests/repo/entry-points.test.cjs` holds it to that.
 `npm run package` makes the same deterministic source archive locally. It is
 a snapshot, not a signed release.
 
-## Bumping Node
+## Bumping Node and npm
 
-The Node version appears in `.node-version`, `mise.toml` and `engines`. The
-gate asserts they agree, but nothing watches for newer releases: Dependabot
-does not track version files, so bumping is a deliberate manual step.
+The Node version appears in `.node-version`, `mise.toml` and `engines`; the
+npm version, which writes the lockfile, in `packageManager` (what CI
+installs) and `engines.npm` (what `engine-strict` holds a local install to).
+The gate asserts each set agrees, but nothing watches for newer releases:
+Dependabot does not track version files, so bumping is a deliberate manual
+step.
 
-actionlint is installed from Homebrew unpinned, so a change in it surfaces as
-a failing macOS job rather than as silent drift.
+actionlint is installed from Homebrew unpinned, and GitHub's macOS image moves
+on its own, so the Quality workflow also runs every Monday: a change in either
+surfaces as a failing job rather than as silent drift.
