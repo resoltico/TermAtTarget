@@ -62,8 +62,8 @@ the first kind means anything under mutation, where the tree is deliberately
 altered, so only `tests/unit/` runs in the campaign.
 
 StrykerJS mutates `src/` with the tap runner and per-test coverage. The score
-at the last run was 100: all 1,322 mutants were detected, and one did not
-compile and is not counted. Twenty-three were detected by timing out; each
+at the last run was 100: all 1,321 mutants were detected, and two did not
+compile and are not counted (one mutant moves between the two from run to run). Twenty-three were detected by timing out; each
 takes away what stops a loop -- the link budget, a walk's own step, a search's
 bounds, or the supervisor's check of its clock -- so the loop never ends where
 the tests expect it to. The build breaks below 98.
@@ -444,6 +444,19 @@ at once, and the warning blocks quitting it. An app the check started is quit
 again; one already running is left as it was.
 
 ## What has been measured on this Mac
+
+For 2.0.1, on 2026-10-30, macOS 27.0.1 (26A434), Apple Silicon, Node 26.13.0,
+npm 12.2.1, the esbuild-built artifact whose SHA-256 begins `80f7e2ca`:
+
+- `npm run quality` passed: 550 tests, 100% coverage, mutation score 100
+  (1,321 mutants), and the committed artifact matching the source.
+- `node tests/integration/macos.mjs --dialogs --terminal --shortcuts` passed:
+  all 49 native checks, every question and the alert, the shells of
+  Terminal, Ghostty, iTerm2 and kitty at the hostile folder exactly, and both
+  Shortcuts routes -- on the minified script, so its appended test body, the
+  harness's domain replacement and osascript all hold for the new build.
+- The field-test kit (`~/FieldTests/TermAtTarget/2026-10-30-dirty-1`) passed
+  all 47 scenarios of its groups A and B against the minified build.
 
 For 2.0.0, on 2026-10-30, macOS 27.0.1 (26A434), Apple Silicon, Node 26.13.0,
 Ghostty 1.4.0, iTerm2 3.7.6, kitty 0.49.2, the artifact whose SHA-256 begins
