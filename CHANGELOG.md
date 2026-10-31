@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-10-31
+
 - Feed the action from Shortcut Input, not Get Selected Files in Finder, which passes Finder's selection even with nothing chosen, so Settings… was never offered.
 
 ## [2.0.1] - 2026-10-30

@@ -1,6 +1,6 @@
 {
   "name": "term-at-target-macos",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "description": "A dependency-free JXA Shortcuts action that opens a terminal app at a deliberate filesystem location",
   "license": "MPL-2.0",
