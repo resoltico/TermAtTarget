@@ -31,10 +31,12 @@ Install the Quick Action
 4. Add Run JavaScript for Mac Automation. Do not use Run AppleScript or the
    similarly named JavaScript-on-Web-Page action.
 5. Delete the example code. Paste all of Term-At-Target.jxa into the action.
-6. Feed Shortcut Input directly into this action, or put Get Selected Files in
-   Finder before it and feed that in; both have been tested. Do not add a
-   conversion or copying action that changes a selected item's path or
-   resolves its alias.
+6. Feed Shortcut Input directly into this action. Do not put Get Selected
+   Files in Finder before it: that hands over whatever Finder has selected,
+   even when the shortcut is run from the Shortcuts app or the menu bar, so
+   the run is almost never given nothing and Settings is never offered. Do
+   not add a conversion or copying action that changes a selected item's path
+   or resolves its alias.
 7. Test a regular file, a folder, no input, and a Finder alias whose own location
    differs from its target. Check that the original path, not a temporary copy,
    reaches the action. QA.md lists the fuller checks.

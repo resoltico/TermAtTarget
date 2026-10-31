@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Feed the action from Shortcut Input, not Get Selected Files in Finder, which passes Finder's selection even with nothing chosen, so Settings… was never offered.
+
 ## [2.0.1] - 2026-10-30
 
 - The released script is minified with comments stripped, about 49 KB instead of 107 KB; behaviour is unchanged, and the sources are at the address in its header.
