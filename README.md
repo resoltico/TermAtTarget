@@ -94,7 +94,10 @@ than simplifying `link/../folder` before following `link`.
 ## Settings
 
 Run Term At Target with nothing selected -- from the Shortcuts app, the menu
-bar, or its keyboard shortcut -- and choose **Settings…**:
+bar, or its keyboard shortcut -- and choose **Settings…**. This needs the
+action fed from Shortcut Input, as INSTALL.txt sets it up: fed from Get
+Selected Files in Finder, it is handed whatever Finder has selected, even in a
+window behind others, so Settings… is never offered.
 
 ```
 Choose a folder to open in Ghostty.
