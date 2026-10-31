@@ -1,4 +1,4 @@
-TERM AT TARGET 2.0.1 — SHORTCUTS INSTALLATION
+TERM AT TARGET 2.0.2 — SHORTCUTS INSTALLATION
 
 Source, releases and build attestation:
 
@@ -97,5 +97,5 @@ License
 
 Mozilla Public License 2.0. Copyright (c) 2026 Ervins Strauhmanis.
 The license is included in LICENSE; the script's header carries its notice.
-The matching source is at https://github.com/resoltico/TermAtTarget/tree/v2.0.1
+The matching source is at https://github.com/resoltico/TermAtTarget/tree/v2.0.2
 and in the source archive provided with this release.
