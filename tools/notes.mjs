@@ -64,11 +64,6 @@ export function extractNotes(changelog, version) {
     return `${lines[start]}\n\n${body}\n`;
 }
 
-// The date a release is dated, from the heading extractNotes accepted.
-export function releaseDate(notes) {
-    return DATED_HEADING.exec(notes.split("\n")[0]).groups.date;
-}
-
 export async function checkTag(tag, base = root) {
     const meta = await metadata(base);
 

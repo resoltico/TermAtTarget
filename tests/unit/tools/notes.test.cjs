@@ -65,12 +65,6 @@ test("a date that is not on the calendar is refused", async () => {
     assert.doesNotThrow(() => extractNotes("## [1.1.0] - 2028-02-29\nText", "1.1.0"), "a leap day is a date");
 });
 
-test("the release date is read from the notes' heading", async () => {
-    const { extractNotes, releaseDate } = await load();
-
-    assert.equal(releaseDate(extractNotes(SAMPLE, "1.0.0")), "2025-01-01");
-});
-
 test("a tag must be v and the declared version exactly", async () => {
     const { checkTag } = await load();
     const { version } = require("../../../package.json");

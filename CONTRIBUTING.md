@@ -143,8 +143,10 @@ second copy of the same prose is a second thing to keep in agreement. The
 publishing job installs nothing, so `tools/release-notes.mjs` must reach no
 installed package; `tests/repo/entry-points.test.cjs` holds it to that.
 
-`npm run package` makes the same deterministic source archive locally. It is
-a snapshot, not a signed release.
+`npm run package` archives the last commit with `git archive` and writes a
+SHA-256 checksum. Git uses the commit time for archive entries. Commit any
+source changes before packaging them. The release workflow runs the same
+command on the tagged commit.
 
 ## Bumping Node and npm
 

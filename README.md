@@ -205,8 +205,8 @@ harness shortcuts (`node tests/integration/shortcuts/build.mjs`); it opens and
 closes six Terminal windows, and reads and dismisses the alert a refused run
 shows, which needs the app running the suite allowed under Privacy & Security
 > Accessibility. The suite saves settings only in domains of its own, never in
-yours. `npm run package` writes a deterministic source archive to
-`artifacts/`.
+yours. `npm run package` writes a deterministic source archive of the last commit
+to `artifacts/`.
 
 ## Repository map
 

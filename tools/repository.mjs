@@ -24,8 +24,7 @@ export function read(relative, base = root) {
 }
 
 /*
- * A symbolic link is refused rather than followed or skipped -- archived, it
- * would point somewhere on the machine that built it.
+ * A symbolic link is refused so the source walk stays inside the repository.
  */
 function isDirectory(entry, name) {
     if (entry.isSymbolicLink()) {
@@ -52,12 +51,16 @@ export async function filesBelow(relative = "", base = root) {
     return found.flat().sort();
 }
 
-export async function metadata(base = root) {
-    const pkg = JSON.parse(await read("package.json", base));
+export function parseMetadata(text) {
+    const pkg = JSON.parse(text);
 
     if (!RELEASE_VERSION.test(pkg.version)) {
         throw new Error("package.json must provide a valid release version.");
     }
 
     return { ...pkg.termAtTarget, version: pkg.version, license: pkg.license, copyright: pkg.copyright, homepage: pkg.homepage };
+}
+
+export async function metadata(base = root) {
+    return parseMetadata(await read("package.json", base));
 }

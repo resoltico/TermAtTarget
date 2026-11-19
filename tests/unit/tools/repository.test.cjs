@@ -50,7 +50,7 @@ test("every file is found, sorted, and what the toolchain writes is left out", a
     assert.deepEqual(await filesBelow("a", base), ["a/b/c.md", "a/z.js"]);
 });
 
-test("a symbolic link is refused rather than archived", async () => {
+test("the tree walk refuses a symbolic link", async () => {
     const { filesBelow } = await load();
     const base = await tree({ "real.txt": "" }, [["link.txt", "real.txt"]]);
 
@@ -58,8 +58,7 @@ test("a symbolic link is refused rather than archived", async () => {
 });
 
 test("anything that is neither file, folder nor link is refused", async () => {
-    // A named pipe cannot be archived as a file, and silently leaving it out
-    // would make the archive differ from the tree without saying so.
+    // A named pipe cannot be read as a source file.
     const { filesBelow } = await load();
     const base = await tree({ "real.txt": "" });
 
