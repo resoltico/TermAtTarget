@@ -4,7 +4,7 @@ const { parentPath } = require("./paths.js");
 const { emojiMatcher, emojiPositions, isWriting } = require("./writing.js");
 
 /*
- * How a name or a path is shown to a person in a question.
+ * How questions and failure alerts show names and paths.
  *
  * An ordinary name is shown as it is. A name holding anything invisible, or
  * anything that moves the text around it, is shown quoted, with each such

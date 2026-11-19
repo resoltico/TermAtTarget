@@ -17,7 +17,9 @@ const { fault } = require("../core/outcomes.js");
  * any unrelated Objective-C call in between hides it again, which is what
  * makes it a memory fault rather than a mistake in the call. With $() the
  * same calls are stable, and the error is readable: a missing path describes
- * itself, where the Ref() form unwrapped to undefined.
+ * itself, where the Ref() form unwrapped to undefined. ShortcutsMacHelper
+ * also overwrites errno between a C call and the read. The adapters use the
+ * Foundation result or its NSError instead.
  */
 
 function isNil(value) {

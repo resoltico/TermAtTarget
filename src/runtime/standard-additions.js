@@ -9,7 +9,9 @@ const { cancelled, fault } = require("../core/outcomes.js");
  * Standard Additions says a person cancelled by throwing errorNumber -128
  * (userCanceledErr), from a dialog and from the folder chooser alike; a
  * `number` or `code` property, or the number as text, is something else. A
- * list a person cancels returns false instead of throwing.
+ * list a person cancels returns false instead of throwing. Standard
+ * Additions appeared inside Shortcuts where an AppKit alert with pop-up
+ * menus blocked the action without displaying a window.
  */
 
 const TITLE = "Term At Target";

@@ -9,8 +9,9 @@ const { perform } = require("./bridge.js");
  * device. A pipe was the one thing that could hold a run past its deadline --
  * a helper blocked writing to it, or a descendant keeping it open after the
  * helper exited (measured: 25 s past a 10 s deadline) -- and JXA cannot read
- * one without risking exactly that, since making it non-blocking needs the
- * variadic fcntl(). The exit status is what is kept.
+ * one without risking exactly that. The JXA bridge dropped trailing
+ * arguments to variadic C calls in measurements, which prevents making a
+ * pipe non-blocking with fcntl(). The exit status is what is kept.
  *
  * The deadline is elapsed time on a monotonic clock, fixed before launch and
  * re-read after every sleep, so an overlong sleep ends the wait at the next

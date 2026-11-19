@@ -18,7 +18,7 @@ function createFoundation(bridge) {
         resolveAlias: (path) => resolveAlias(bridge, path),
         readLink: (path) => readLink(bridge, path),
         pathOf: (value) => pathOf(bridge, value),
-        // The person's home folder, for showing paths inside it from "~".
+        // NSHomeDirectory gave the person's own home in Shortcuts, used for "~".
         home: () => String(bridge.objc.unwrap(bridge.ns.NSHomeDirectory())),
         validateDirectory: (path) => validateDirectory(bridge, path),
         isNil,

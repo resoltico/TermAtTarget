@@ -19,7 +19,9 @@
  * An envelope that is not exactly the measured shape is refused by name,
  * rather than read some other way and refused as a multiple selection.
  * ignoresInput is checked, not acted on: the items are what the action was
- * given, whatever the flag says.
+ * given, whatever the flag says. On both measured routes Shortcuts supplied
+ * a Finder alias as its own path, a symbolic link as its target, and a broken
+ * or cyclic symbolic link as an empty selection.
  */
 
 const ENVELOPE_LENGTH = 2;

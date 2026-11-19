@@ -43,11 +43,8 @@ overwriting errno -- only a run through that host finds it.
 
 ## What the gate enforces
 
-`QA.md` is the contract. It specifies every check, its threshold, and why the
-guard exists -- coverage, ESLint mode, the language target,
-mutation score, the native checks, and the facts that must agree across files.
-This file does not restate those rules, so that there is one place to change
-when they move.
+[QA.md](QA.md) lists the quality gates, their rejecting cases, and the native
+evidence. The implementation owns the relevant behavior and declarations.
 
 Three things worth knowing before you write code, because they shape where
 things go rather than merely passing or failing:
@@ -63,37 +60,31 @@ things go rather than merely passing or failing:
 
 ## Source layout
 
-`src/core/` decides: the shared vocabulary (`src/core/vocabulary.js` -- the
-answers, the settings' values and the terminal apps), the settings, path rules,
-link resolution, the destination policy, and the run itself. It names nothing
-native and is tested in Node with nothing standing in for it. The core declares
-questions in `src/core/questions.js` and owns their wording in
-`src/core/messages.js`.
+The portable core decides what to open. `src/core/outcomes.js` declares
+refusals, faults and remedies. `src/core/messages.js` supplies English
+wording with named parameters. Its renderer takes an explicit locale and
+falls back to English. `src/core/questions.js` declares each question and
+offered answer. `src/core/settings.js` declares stored values and which
+ones require an installed app.
 
-`src/runtime/` touches macOS: Foundation's answers about files, the saved
-preferences, the questions and settings lists, and the launch, which a deadline
-bounds. The core asks through ports -- `files`, `preferences`, `terminals`,
-`ask`, `chooseFolder` and `settingsScreen`, assembled in `src/runtime/host.js`. Each
-adapter takes the bridge (`ns`, `objc` and an out-parameter maker) as a value,
-so its tests hand it a fake. Every program the action runs, every terminal
-app's bundle identifier and the preferences domain are named in
-`src/runtime/executables.js` and nowhere else.
+The runtime implements Foundation access, preferences, terminal launching
+and Standard Additions dialogs. `src/runtime/shortcuts-input.js` owns the
+Shortcuts input envelope. `src/runtime/entry.js` exports `run` and returns
+an empty list to Shortcuts. `src/runtime/failure-report.js` renders refusal
+and fault alerts. The native suite uses a separate entry in
+`tests/integration/entry.cjs` with the production bundler settings.
 
-To support another terminal app, add it to `src/core/vocabulary.js` and its
-bundle identifier to `src/runtime/executables.js`, then run the native suite
-with `--terminal` with the app installed: it must find the app's shell at the
-folder it was asked to open before the app can be listed. Measure it with
-`$NAME`, `$(...)`, backticks and `~` in folder names too: an app that expands
-any of them must say so in the vocabulary, as kitty's `readsVariables` does,
-and the core must refuse what it would misread.
+The module graph is discovered from `src/`. It requires literal relative
+imports, forbids core dependencies on the runtime and rejects cycles. The
+bundle must reach every source module.
 
-A new module needs no list: the build finds every module under `src/`, and
-refuses one the bundle does not reach from `src/runtime/entry.js`, a require
-that is not a literal relative path to a module there, a cycle, and any
-require from the core into the runtime. The core may not use anything JXA
-puts in scope to reach macOS (`ObjC`, `$`, `Application`, `Path` and the
-rest); the gate parses each core module to check, so naming them in a comment
-or a string is fine.
+To add a terminal app, add its identifier and proper name to
+`src/core/vocabulary.js` and its bundle identifier to
+`src/runtime/executables.js`. Add catalog entries only when the app needs
+specific wording. Run the native suite with `--terminal` and the app installed.
+Verify the exact working directory, including paths containing `$NAME`,
+`$(...)`, backticks and `~`. Record expansions the app performs and express
+the applicable path restrictions in the core.
 
 ## Unicode data
 
@@ -106,10 +97,10 @@ not what the data generates.
 ## The released artifact
 
 `npm run build` generates `Term-At-Target.jxa` from `src/` through
-`tools/bundle.mjs`, which bundles it with esbuild for macOS 12.3's engine
-(`safari15.4`): whitespace and comments stripped, names kept, as
-ImageFilesToPDF does. Its header is MPL's per-file notice, the version's
-source address and the macOS floor; the full licence ships as the release's
+`tools/bundle.mjs`. esbuild targets the engine in macOS 12.3, removes
+whitespace and ordinary comments, and keeps function names. The header gives
+the MPL per-file notice, the version's source address and the macOS floor.
+The full licence ships as the release's
 `LICENSE`. The one comment kept is the Unicode data notice, which
 `tools/unicode/tables.mjs` writes as a `/*! ... */` comment so that it travels
 with the tables, at the end of the file. Nothing in it is meant to be edited,

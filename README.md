@@ -10,13 +10,8 @@ Source, releases and build attestation: https://github.com/resoltico/TermAtTarge
 
 ## Requirements
 
-macOS 12.3 or later. Apple's Terminal is used unless you choose
-[Ghostty](https://ghostty.org/), [iTerm2](https://iterm2.com/) or
-[kitty](https://sw.kovidgoyal.net/kitty/) in the settings. The script's syntax and
-built-ins are checked against the JavaScript engine of macOS 12.3; it has been
-run on macOS 27, including through Shortcuts itself, and on macOS 15 by CI, both
-on Apple Silicon.
-[QA.md](QA.md) says what is measured and what is not.
+macOS 12.3 or later. Apple's Terminal is used unless you choose Ghostty,
+iTerm2 or kitty in the settings. See [QA.md](QA.md) for tested platforms.
 
 ## Install
 
@@ -48,12 +43,8 @@ dist directory.
 | A typed path ending in `/` that names a link | The link is followed to check it leads to a folder, as the filesystem would; refused if it leads to a file or nowhere. |
 | Cancel | Open nothing, and return no output. |
 
-Folders are not treated as collections of work. There is one open request per
-completed invocation, made to the terminal app by its bundle identifier: success
-means the request was handed over, not that a shell has finished starting. If
-`/usr/bin/open` has not finished after 10 seconds it is told to stop and the
-run says the window may still appear; nothing is retried. If open fails, the run
-says so with its exit status.
+A completed run makes one open request. If the request passes its deadline,
+the alert says the window may still appear.
 
 A run that is refused or fails says so in Term At Target's own alert -- a
 heading such as "Select one item at a time" or "Ghostty isn't installed", and
@@ -75,12 +66,12 @@ In: ~/Downloads
 ```
 
 For a Finder alias the question is "Follow this Finder alias, or open Ghostty
-where it is?", answered with "Open Where It Is" or "Follow Alias". Shortcuts
-resolves a selected symbolic link before the action sees it (measured, both
-from the Quick Action's input and from Get Selected Files in Finder), so a
-symbolic link is never asked about; the same choice exists for one that
-reaches the action some other way. Each question names the terminal app chosen in the settings.
-Return takes the default, on the right; Esc cancels. A name
+where it is?", answered with "Open Where It Is" or "Follow Alias". A selected
+symbolic link arrives from Shortcuts as its target. A symbolic link supplied
+as a typed path can open at its own location or at its target.
+
+Each question names the terminal app chosen in the settings. Return takes the
+default, on the right. Esc cancels. A name
 holding something invisible -- a line break, a direction mark, a soft hyphen,
 a space at either end -- is shown in quotes, with each such character written
 as `\u{XXXX}`; emoji and the joiners scripts like Devanagari are written with
@@ -89,10 +80,9 @@ full path.
 
 Packages are folders here: you may open inside them.
 
-Alias location works even when the alias's target is unavailable. Target
-resolution does not ask to mount a missing alias volume or show a resolution
-prompt. Symbolic-link traversal preserves filesystem component order rather
-than simplifying `link/../folder` before following `link`.
+An alias can open its own folder even when its target is unavailable.
+[SECURITY.md](SECURITY.md) describes the limits of filesystem validation
+and alias resolution.
 
 ## Settings
 
@@ -143,11 +133,6 @@ named `$HOME notes` would open in your home folder instead. Term At Target
 never hands kitty a folder whose path contains `$`: such a run is refused with
 a message saying why, and the other apps open it as named.
 
-Supporting another terminal app takes one entry in `src/core/vocabulary.js`,
-its bundle identifier in `src/runtime/executables.js`, and a measurement that
-the shell it starts is at the folder it was asked to open, which the native
-suite's `--terminal` check makes for every supported app that is installed.
-
 The script itself holds no settings, so every installed copy is byte for byte
 the released file and its checksum always verifies.
 
@@ -166,73 +151,8 @@ has already lost the original selection's identity. This script deliberately
 does not guess that identity from a filename or from Finder's later selection.
 [INSTALL.txt](INSTALL.txt) says how to feed the selection in unchanged.
 
-## Runs are independent
+## Further reading
 
-Each run makes its own request and shares nothing with any other except the
-saved settings, which it reads once at the start: the action writes no file,
-keeps no lock and remembers nothing else. Two runs at once make two requests.
-The terminal app's own window, tab and startup preferences decide how a request
-is presented; this action does not reuse, type into or close an existing shell.
-
-## Development
-
-The Shortcut needs nothing installed. Development needs Node (the version in
-`.node-version`) and, for the workflow linter, Homebrew:
-
-```sh
-brew install actionlint
-npm ci --ignore-scripts
-npm run quality
-```
-
-Run `npm run build` to generate the script and checksum manifest. What the
-gate checks and why is in
-[QA.md](QA.md); how to work on the code is in
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
-On a Mac:
-
-```sh
-npm run test:integration:macos
-node tests/integration/macos.mjs --dialogs --terminal --shortcuts
-```
-
-`--dialogs` shows each question for a second. `--terminal` opens one real
-window in each supported terminal app that is installed, at a disposable
-folder, checks that its shell is there exactly, and closes it. `--shortcuts`
-runs the artifact through Shortcuts itself, after a one-time import of two
-harness shortcuts (`node tests/integration/shortcuts/build.mjs`); it opens and
-closes six Terminal windows, and reads and dismisses the alert a refused run
-shows, which needs the app running the suite allowed under Privacy & Security
-> Accessibility. The suite saves settings only in domains of its own, never in
-yours. `npm run package` writes a deterministic source archive of the last commit
-to `artifacts/`.
-
-## Repository map
-
-```
-src/core/                Vocabulary, settings, path rules, link resolution, the run
-src/runtime/             Foundation, preferences, questions, and the bounded launch
-tools/                   Build, verification, release notes and packaging
-tools/lint/              The source gate's rule families
-tools/unicode/           Unicode data files, and the table generator
-tests/unit/              Core, runtime and tool tests, each given its world
-tests/repo/              Checks of the real repository and workflows
-tests/integration/       The native macOS suite
-dist/                    Single-file JXA and its SHA-256 manifest
-.github/workflows/       Quality and release workflows
-```
-
-## Scope and maintenance
-
-Opening a terminal app is a path-based handoff, not an atomic operation with
-directory lookup: another process can rename or replace a path after
-validation. Selected items are never written, but commands later entered in the
-terminal naturally can modify their working directory. There is no performance or universal host
-compatibility claim.
-
-[CONTRIBUTING.md](CONTRIBUTING.md) describes changes and releases.
-[SECURITY.md](SECURITY.md) describes boundaries. [QA.md](QA.md) records what is
-known to hold, how it was measured, and what has not been established.
-
-Licensed under the Mozilla Public License 2.0; see [LICENSE](LICENSE). Copyright (c) 2026 Ervins Strauhmanis.
+[SECURITY.md](SECURITY.md) covers the action's data boundaries.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers building and changing the source.
+[QA.md](QA.md) describes the checks and verified platforms.

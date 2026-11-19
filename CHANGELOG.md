@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+- Download Term-At-Target.jxa from Releases or use `npm run build`. The generated script and checksum manifest are no longer tracked in Git.
+- Use `.node-version` and the npm pin in package.json for development. The repository no longer ships mise.toml or its task aliases.
+- Failure alerts show full paths with invisible and direction-changing characters escaped the same way as in questions.
+- Failure alerts give specific headings for invalid inputs, link and destination problems, unavailable apps and failed or unconfirmed launches.
+- Alerts use consistent wording for invalid input, link traversal and missing native metadata, and show unrecognised saved text using the same escaping as settings.
+- An unconfirmed launch alert now distinguishes a missed deadline, a lost observation and cleanup failures. It reports that the window may still appear.
+- Alias and kitty alerts use the labels shown on the corresponding buttons and settings options.
+- Source archives use Git and commit timestamps. `npm run package` archives HEAD and excludes uncommitted work. `SOURCE_DATE_EPOCH` no longer changes archive times.
+- Release publication waits for a read-only Ubuntu build to match both files from the qualified macOS build byte for byte.
+- Contributors find wording in `src/core/messages.js`, outcome declarations in `src/core/outcomes.js` and questions in `src/core/questions.js`.
+- The production bundle exports only run. The native suite bundles its own test entry and checks refusal and fault kinds.
+- Example tests live together by module, with property tests kept separate. The source gate no longer imposes a 150-line limit.
+
 ## [2.0.2] - 2026-10-31
 
 - Feed the action from Shortcut Input, not Get Selected Files in Finder, which passes Finder's selection even with nothing chosen, so Settings… was never offered.

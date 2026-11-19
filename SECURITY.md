@@ -8,25 +8,20 @@ are outside this action's boundary.
 
 ## Paths and launch
 
-The final directory is passed to /usr/bin/open as a distinct NSTask argument,
-with the terminal app named by its bundle identifier -- com.apple.Terminal,
-com.mitchellh.ghostty, com.googlecode.iterm2 or net.kovidgoyal.kitty -- so no other application with the same name can
-receive it. The identifiers are fixed in the script; a saved setting chooses
-between them and cannot name any other app. No shell parses the directory; no
-command is typed into an existing terminal session. kitty expands environment
-variables in the directory it is given (measured; command substitution and ~
-stay literal), so kitty is never handed a directory whose path contains "$". open reads and writes nothing but the
-null device. It is given 10 seconds, on a clock no wall-clock change moves;
-if it has not finished by then, or watching it fails, it is told to stop
-through its own task object -- never by pid, which could by then name another
-process -- and the run reports that the window may still appear, and which
-process open is if it could not be seen to stop. Nothing is
-retried, so a slow request cannot become two.
-There is no eval, dynamic source download, network client, credential storage,
-telemetry or external runtime dependency. Path text is validated without
-trimming or splitting names. File URLs are decoded once and must be local.
-Questions and failure alerts escape invisible and direction-changing path
-characters. Displayed strings are never read back as paths.
+The runtime passes the directory as a distinct NSTask argument to
+/usr/bin/open. Bundle identifiers come from the fixed table in
+`src/runtime/executables.js`. The path reaches the app without shell
+interpretation. The core refuses paths that an app would reinterpret.
+See the kitty rule in [README.md](README.md).
+
+`src/runtime/supervise.js` bounds the wait on a monotonic clock and
+terminates the helper through the task object. An unconfirmed request
+may still reach the app. The action makes one attempt.
+
+Questions and failure alerts use the path presentation rules in
+`src/core/present.js`. Alerts show full paths and escape controls and
+direction-changing characters. The filesystem and launch receive the
+original path.
 
 A selected Finder alias is classified before any target resolution. Choosing
 its own containing folder does not resolve its target. Chosen alias targets
@@ -43,17 +38,10 @@ in effect; do not grant broad privileges to bypass a failure without diagnosis.
 
 ## Saved settings, and no other state
 
-The one thing the action writes is its settings, in the macOS preferences
-domain com.resoltico.TermAtTarget: which terminal app opens, and whether
-folders and links are asked about. It writes no file -- no lock, cache or
-temporary file. The source gate refuses a filesystem-writing call anywhere in
-the shipped code, and NSUserDefaults anywhere but the one module that saves the
-settings, so this is checked rather than promised.
-
-A saved value is read as data and must be one of the few each setting takes;
-anything else stops the run with a message naming the setting. Runs share
-nothing else, so one run cannot block, corrupt or be blocked by another; two
-at once make two requests, and a run reads the settings once, at its start.
+The preferences domain documented in [INSTALL.txt](INSTALL.txt) is the
+action's only persistent state. The source gate rejects filesystem writes
+and confines NSUserDefaults to `src/runtime/preferences.js`. Each run reads
+settings once and manages its own request.
 
 There is deliberately no run lock. Nothing is shared that needs protecting,
 and inside Shortcuts a lock cannot tell "another run holds it" from "locking
