@@ -88,3 +88,12 @@ test("the manifest is the artifact's SHA-256 and its published name", async () =
     assert.equal(digestOf("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     assert.equal(renderManifest("abc"), `${digestOf("abc")}  Term-At-Target.jxa\n`);
 });
+
+test("the production bundle rejects a source module absent from esbuild's inputs", async () => {
+    const { assertBundled } = await load();
+    const entry = "src/runtime/entry.js";
+    const omitted = "src/core/orphan.js";
+
+    assert.throws(() => assertBundled([entry, omitted], [entry]),
+        /^Error: Source modules the bundle does not reach: src\/core\/orphan\.js$/u);
+});

@@ -1,19 +1,7 @@
 import { readFromDisk } from "./consistency.mjs";
 
-/*
- * What the ignore file must cover, and what it must never cover.
- *
- * The second half is the one that matters. `dist/` holds the released
- * artifact and is committed on purpose. If it were ever ignored, the
- * committed artifact would quietly stop updating while every local check kept
- * passing -- check-dist compares the working tree against src/, not against
- * git -- and the next release would publish whatever was committed last.
- */
-
-// Written into the working tree by the toolchain, never committed.
-const GENERATED = ["node_modules/", "reports/", "artifacts/", ".stryker-tmp/"];
-
-const COMMITTED = ["dist/"];
+// These directories hold generated output outside version control.
+const GENERATED = ["node_modules/", "reports/", "artifacts/", ".stryker-tmp/", "dist/"];
 
 export function parseIgnore(text) {
     return String(text)
@@ -51,16 +39,6 @@ export function checkIgnoreRules(patterns) {
         throw new Error(
             "the toolchain writes these into the working tree and the ignore " +
             `file does not cover them: ${uncovered.join(", ")}`
-        );
-    }
-
-    const hidden = COMMITTED.filter((path) => ignoresPath(patterns, path));
-
-    if (hidden.length > 0) {
-        throw new Error(
-            `${hidden.join(", ")} is committed on purpose and must not be ` +
-            "ignored; ignoring it would stop the released artifact updating " +
-            "while every other check kept passing"
         );
     }
 

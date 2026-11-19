@@ -40,6 +40,7 @@ test("every file is found, sorted, and what the toolchain writes is left out", a
         "node_modules/x/index.js": "",
         "reports/r.json": "",
         "artifacts/a.tar.gz": "",
+        "dist/Term-At-Target.jxa": "",
         ".stryker-tmp/copy.js": "",
         ".git/HEAD": "",
         "a/.DS_Store": ""

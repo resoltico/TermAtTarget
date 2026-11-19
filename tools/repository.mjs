@@ -13,7 +13,7 @@ import path from "node:path";
 export const root = fileURLToPath(new URL("../", import.meta.url));
 
 // Not source: version control, what the toolchain writes, and Finder's notes.
-export const excluded = new Set([".git", "node_modules", "reports", "artifacts", ".stryker-tmp", ".DS_Store"]);
+export const excluded = new Set([".git", "node_modules", "reports", "artifacts", "dist", ".stryker-tmp", ".DS_Store"]);
 
 export const artifactName = "Term-At-Target.jxa";
 

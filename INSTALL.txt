@@ -4,7 +4,8 @@ Source, releases and build attestation:
 
     https://github.com/resoltico/TermAtTarget
 
-What has been verified, and on which macOS, is in QA.md with the source.
+Get Term-At-Target.jxa from Releases or run npm run build from a development
+checkout to generate it in dist. QA.md records the verified platforms.
 
 Verifying what you downloaded
 =============================

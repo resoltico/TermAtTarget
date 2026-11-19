@@ -1,19 +1,10 @@
 "use strict";
 
-/*
- * What the ignore file must cover, and what it must never cover.
- *
- * The second half is the one that matters. dist/ holds the released artifact
- * and is committed deliberately; ignoring it would stop the committed
- * artifact updating while every local check kept passing, because check-dist
- * compares the working tree against src/ rather than against git.
- */
-
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const load = () => import("../../../tools/lint/ignore-rules.mjs");
-const COVERED = ["node_modules/", "reports/", "artifacts/", ".stryker-tmp/"];
+const COVERED = ["node_modules/", "reports/", "artifacts/", ".stryker-tmp/", "dist/"];
 
 test("comments and blank lines are not patterns", async () => {
     const { parseIgnore } = await load();
@@ -71,34 +62,10 @@ test("everything the toolchain generates must be covered", async () => {
     });
 });
 
-test("dist must never be ignored, however it is spelled", async () => {
-    // Ignoring it would stop the released artifact updating while check-dist
-    // kept passing, and the next release would ship a stale file.
+test("an exception that re-includes dist is rejected", async () => {
     const { checkIgnoreRules } = await load();
 
-    for (const pattern of ["dist", "dist/", "/dist"]) {
-        assert.throws(
-            () => checkIgnoreRules([...COVERED, pattern]),
-            (error) => {
-                assert.equal(error.message, "dist/ is committed on purpose " +
-                    "and must not be ignored; ignoring it would stop the " +
-                    "released artifact updating while every other check " +
-                    "kept passing");
-
-                return true;
-            },
-            `${pattern} must be refused`
-        );
-    }
-});
-
-test("dist ignored and then un-ignored is allowed", async () => {
-    const { checkIgnoreRules } = await load();
-
-    assert.equal(
-        checkIgnoreRules([...COVERED, "dist/", "!dist/"]),
-        COVERED.length + 2
-    );
+    assert.throws(() => checkIgnoreRules([...COVERED, "!dist/"]), /does not cover them: dist\//u);
 });
 
 test("the repository's own ignore file passes", async () => {

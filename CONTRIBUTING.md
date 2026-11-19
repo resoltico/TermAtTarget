@@ -8,10 +8,8 @@ npm ci --ignore-scripts
 npm run quality
 ```
 
-`npm run quality` runs the whole portable gate without rebuilding, which is
-what CI does, so that a stale committed artifact fails instead of shipping.
-After changing `src/`, run `npm run build`, review the artifact diff, and run
-the gate again.
+`npm run quality` runs the portable gate. Run `npm run build` to write the
+paste-ready script and its SHA-256 manifest to the ignored dist directory.
 
 The native suite needs a Mac and is run separately:
 
@@ -107,7 +105,7 @@ not what the data generates.
 
 ## The released artifact
 
-Do not edit it. `dist/Term-At-Target.jxa` is generated from `src/` by
+`npm run build` generates `Term-At-Target.jxa` from `src/` through
 `tools/bundle.mjs`, which bundles it with esbuild for macOS 12.3's engine
 (`safari15.4`): whitespace and comments stripped, names kept, as
 ImageFilesToPDF does. Its header is MPL's per-file notice, the version's
@@ -134,9 +132,9 @@ with a build attestation. It checks what a local build cannot:
 
 - **The tag names the version the repository declares**, and that version has
   exactly one dated section in `CHANGELOG.md`.
-- **The build is reproducible.** The committed artifact is checked against the
-  source while it is untouched, then rebuilt, and the rebuild must leave
-  `dist/` unchanged.
+- **The build is reproducible.** The macOS job builds and qualifies the
+  artifact. A separate Ubuntu job with read-only contents permissions
+  rebuilds the same commit and compares the script and manifest byte for byte.
 - **The tag still points at the commit being built** when the publishing job
   runs, and every asset's attestation verifies before it is published.
 

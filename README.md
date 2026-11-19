@@ -27,8 +27,10 @@ and follow INSTALL.txt. In short: paste the whole script into Shortcuts'
 Action that receives **Files** from Finder. Do not use **Run JavaScript on Web
 Page**, and do not paste it into **Run AppleScript**.
 
-The same script is `dist/Term-At-Target.jxa` in this repository. Every release
-file carries a build attestation; INSTALL.txt shows how to verify it.
+Every release file carries a build attestation. INSTALL.txt shows how to
+verify it. To build from source, run `npm run build` after installing the
+development tools. The script and checksum manifest appear in the ignored
+dist directory.
 
 ## What it does
 
@@ -183,9 +185,8 @@ npm ci --ignore-scripts
 npm run quality
 ```
 
-`quality` verifies the committed `dist/` **before** any rebuild, so a stale
-artifact fails instead of shipping. After editing sources, run `npm run build`
-and review the artifact diff. What the gate checks and why is in
+Run `npm run build` to generate the script and checksum manifest. What the
+gate checks and why is in
 [QA.md](QA.md); how to work on the code is in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 

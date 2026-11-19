@@ -1,7 +1,7 @@
 # Quality gates
 
 What is checked, how, and what the checks do and do not establish. Everything
-in the portable gate runs with one command, which does not rebuild first:
+in the portable gate runs with one command.
 
 ```sh
 npm ci --ignore-scripts
@@ -9,9 +9,7 @@ npm run quality
 ```
 
 `quality` runs, in order: the source gate, ESLint, the unit and repository
-tests under 100% coverage, the mutation campaign, and the check that the
-committed artifact is what the source renders to. A stale or hand-edited
-`dist/` fails here rather than being quietly rebuilt.
+tests under 100% coverage, and the mutation campaign.
 
 ## Source gate
 
@@ -30,7 +28,7 @@ to fail, and `tests/repo/gate.test.cjs` applies it to the real tree.
 | `consistency.mjs` | Version, package name, Node pin, npm pin, language year and repository URL agree in every file that states them, and the version has dated release notes. |
 | `toolchain.mjs` | The `brew install` line is the same in `CONTRIBUTING.md` and both workflows, and installs actionlint. |
 | `workflow-rules.mjs` | Every action is pinned to a full commit SHA; actionlint passes when installed. |
-| `ignore-rules.mjs` | `.gitignore` covers what the toolchain writes, and never covers `dist/`. |
+| `ignore-rules.mjs` | `.gitignore` covers what the toolchain writes, including the dist directory. |
 | `unicode-tables.mjs` | `src/core/unicode-tables.js` is exactly what the vendored Unicode data generates. |
 | `document-rules.mjs`, `document-hygiene.mjs`, `document-references.mjs` | Each document has one title and no section repeated in place, holds no invisible or control character, and every backticked path in it exists -- except in `AGENTS.md`, a baseline shared across repositories whose backticked names are naming examples. |
 
@@ -104,7 +102,7 @@ The properties also pass at 20,000 cases for each of three seeds.
 
 ## The artifact
 
-`dist/Term-At-Target.jxa` is rendered by `tools/bundle.mjs` with esbuild
+`npm run build` writes `Term-At-Target.jxa` to the ignored dist directory. It is rendered by `tools/bundle.mjs` with esbuild
 (pinned exactly), as an IIFE for `safari15.4` -- the JavaScriptCore of macOS
 12.3 -- with whitespace and comments removed and names kept, so an error from
 the field still names its function. The graph is checked before anything is
@@ -128,9 +126,9 @@ The rendered artifact is loaded in a bare `vm` context in `tests/unit/tools/`,
 where it must declare `run` and make the source's decisions with nothing from
 Node or macOS in reach.
 
-`npm run check-dist` compares the committed artifact and `dist/SHA256SUMS`
-with a fresh render. The release workflow runs it before rebuilding, then
-requires the rebuild to leave `dist/` unchanged.
+The release workflow qualifies the macOS build, then rebuilds the same commit
+on Ubuntu with read-only contents permissions. Both the script and SHA-256
+manifest must match the qualified copies before the publish job runs.
 
 ## What Shortcuts hands the script
 

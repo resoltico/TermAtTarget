@@ -39,12 +39,6 @@ test("the repository's facts agree, its documents hold, and its ignore file is r
     assert.ok(await checkIgnores() > 0);
 });
 
-test("the committed artifact and its manifest match the source", async () => {
-    const { checkDist } = await import("../../tools/dist.mjs");
-
-    await assert.doesNotReject(checkDist());
-});
-
 test("the committed Unicode tables are what the vendored data generates", async () => {
     const { checkUnicodeTables } = await import("../../tools/lint/unicode-tables.mjs");
 

@@ -6,7 +6,6 @@
 import path from "node:path";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { filesBelow, root, metadata, read } from "./repository.mjs";
-import { checkDist } from "./dist.mjs";
 import { extractNotes, releaseDate } from "./notes.mjs";
 import { archiveOf } from "./archive.mjs";
 import { digestOf } from "./bundle.mjs";
@@ -22,8 +21,6 @@ function epochOf(date, override) {
 
     return epoch;
 }
-
-await checkDist();
 
 const meta = await metadata();
 const notes = extractNotes(await read("CHANGELOG.md"), meta.version);
