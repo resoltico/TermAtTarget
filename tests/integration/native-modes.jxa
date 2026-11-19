@@ -1,11 +1,11 @@
-/* The native suite's modes beyond its main checks, appended to the generated
- * artifact before native-body.jxa: the supervisor against real processes,
+/* The modes appended to the test bundle before native-body.jxa: the
+ * supervisor against real processes,
  * each question shown by the real Standard Additions, the saved settings in a
  * domain of the suite's own, and the name presentation.
  */
 function superviseMode(bridge, files, base) {
     "use strict";
-    const supervise = __TermAtTarget.forNativeTests.supervise;
+    const supervise = __TermAtTarget.supervise;
     const ran = function (script) {
         const started = Date.now();
         const result = supervise(bridge, files, { executable: "/bin/sh", arguments: ["-c", script], operation: "launch", subject: "/bin/sh" });
@@ -43,7 +43,7 @@ function dialogsMode(host, base) {
             return app.displayAlert(text, Object.assign({}, options, { givingUpAfter: 1 }));
         }
     };
-    const questions = __TermAtTarget.forNativeTests.createQuestions(timed);
+    const questions = __TermAtTarget.createQuestions(timed);
     const ports = Object.assign({}, host, questions, {
         preferences: { load: function () { return { terminal: null, folder: null, link: null }; } }
     });
@@ -56,7 +56,7 @@ function dialogsMode(host, base) {
         start: refusal(function () { askInRun([]); }),
         folder: refusal(function () { askInRun([base + "/Demo.app"]); }),
         link: refusal(function () { askInRun([base + "/relative-link"]); }),
-        alert: refusal(function () { __TermAtTarget.forNativeTests.createFailureReport(timed)(new Error("A failure, shown for a second.")); })
+        alert: refusal(function () { __TermAtTarget.createFailureReport(timed)(new Error("A failure, shown for a second.")); })
     };
 }
 
@@ -72,7 +72,7 @@ function preferencesMode(bridge, domain, step) {
     "use strict";
     const marker = "termattarget-native-check";
     const own = $.NSUserDefaults.standardUserDefaults;
-    const preferences = __TermAtTarget.forNativeTests.createPreferences(bridge, domain);
+    const preferences = __TermAtTarget.createPreferences(bridge, domain);
     if (step === "save") {
         preferences.save("folder", "parent");
         $.NSUserDefaults.alloc.initWithSuiteName(domain).setIntegerForKey(3, "link");
@@ -91,5 +91,5 @@ function preferencesMode(bridge, domain, step) {
  */
 function presentMode(names) {
     "use strict";
-    return names.map(function (name) { return __TermAtTarget.forNativeTests.presentName(name); });
+    return names.map(function (name) { return __TermAtTarget.presentName(name); });
 }

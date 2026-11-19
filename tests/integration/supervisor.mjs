@@ -36,15 +36,6 @@ function assertStopped(result, name, execFileSync, atMost) {
     }
 }
 
-// The lingering helper's child outlives it by design; end it if it has not ended already.
-function endLingering(execFileSync) {
-    try {
-        execFileSync("/usr/bin/pkill", ["-f", "sleep 20"], { stdio: "ignore" });
-    } catch {
-        // pkill exits 1 when nothing matched: it had already finished.
-    }
-}
-
 // Not signalled by pid: reported as still running, with the pid to end it by.
 function assertReportedRunning(ran, execFileSync) {
     const alive = aliveNow(ran.pid, execFileSync);
@@ -75,7 +66,6 @@ export function checkSupervisor(invoke, execFileSync) {
     assertReportedRunning(result.stubborn, execFileSync);
 
     assertRefused(result);
-    endLingering(execFileSync);
     console.log("PASS: supervisor — success and failure at once, a helper whose child keeps its stderr at once, " +
         `an endless helper stopped at ${result.flood.seconds.toFixed(1)} s, one ignoring SIGTERM reported with its pid ` +
         `at ${result.stubborn.seconds.toFixed(1)} s, and a file that cannot run.`);

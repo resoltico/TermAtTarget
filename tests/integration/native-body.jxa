@@ -7,7 +7,7 @@ function run(argv) {
     const host = __TermAtTarget.createMacHost();
     const bridge = { ns: $, objc: ObjC, outParameter: function () { return $(); },
         now: function () { return $.NSProcessInfo.processInfo.systemUptime; } };
-    const files = __TermAtTarget.forNativeTests.createFoundation(bridge);
+    const files = __TermAtTarget.createFoundation(bridge);
     function insist(condition, label) {
         if (!condition) { throw new Error("Native assertion failed: " + label); }
     }

@@ -100,13 +100,8 @@ test("a failure the alert cannot tell is thrown as itself, for Shortcuts to show
     }, (entry) => entry.run(["/input"])), (error) => error === failure);
 });
 
-test("the pieces a native harness needs are exported with it", () => {
-    withStandIns({ createMacHost: () => ({}), execute: () => [] }, (entry) => {
-        assert.deepEqual(Object.keys(entry).sort(), ["createMacHost", "execute", "forNativeTests", "run"]);
-        assert.equal(typeof entry.createMacHost, "function");
-        assert.equal(typeof entry.execute, "function");
-        assert.deepEqual(Object.keys(entry.forNativeTests).sort(),
-            ["createFailureReport", "createFoundation", "createPreferences", "createQuestions", "presentName", "supervise"]);
-        assert.equal(entry.forNativeTests.supervise, require("../../../src/runtime/supervise.js").supervise);
+test("the production entry exports only run", () => {
+    withStandIns({ createMacHost: () => ({}), execute: () => ({ kind: "cancelled" }) }, (entry) => {
+        assert.deepEqual(Object.keys(entry), ["run"]);
     });
 });

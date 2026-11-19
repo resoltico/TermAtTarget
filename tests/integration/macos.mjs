@@ -1,6 +1,6 @@
 /*
- * The native macOS suite: the committed artifact, compiled and run against
- * real Foundation, with a test entry point appended in a temporary copy.
+ * The native macOS suite compiles the production artifact and exercises the
+ * real Foundation adapters through a separately bundled test entry.
  *
  *   node tests/integration/macos.mjs [--dialogs] [--terminal] [--shortcuts]
  *
@@ -13,7 +13,7 @@ import { mkdtemp, writeFile, mkdir, rm, realpath } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { root, artifactName, read } from "../../tools/repository.mjs";
-import { checkDist } from "../../tools/dist.mjs";
+import { renderBundle, renderRelease } from "../../tools/bundle.mjs";
 import { checkTerminals } from "./terminal-check.mjs";
 import { checkPreferences } from "./preferences-check.mjs";
 import { throughShortcuts } from "./shortcuts/route.mjs";
@@ -27,8 +27,6 @@ if (process.platform !== "darwin") {
 }
 
 const flag = (name) => process.argv.includes(name);
-
-await checkDist();
 
 const temp = await realpath(await mkdtemp(path.join(tmpdir(), "term-at-target-native-")));
 const script = path.join(temp, "native.jxa");
@@ -64,14 +62,17 @@ function dialogCheck() {
 
 
 try {
-    const production = await read(`dist/${artifactName}`);
+    const production = await renderRelease();
+    const productionScript = path.join(temp, artifactName);
+    const native = await renderBundle("tests/integration/entry.cjs");
 
-    await writeFile(script, `${production}\n${await read("tests/integration/native-modes.jxa")}\n` +
+    await writeFile(productionScript, production);
+    await writeFile(script, `${native.code}\n${await read("tests/integration/native-modes.jxa")}\n` +
         `${await read("tests/integration/native-body.jxa")}`);
     await prepareFixtures(temp);
 
     const compiled = spawnSync("/usr/bin/osacompile", ["-l", "JavaScript", "-o", path.join(temp, "production.scpt"),
-        path.join(root, "dist", artifactName)], { encoding: "utf8", timeout: 30000 });
+        productionScript], { encoding: "utf8", timeout: 30000 });
 
     if (compiled.error || compiled.status !== 0) {
         throw new Error(`Native compile failed: ${compiled.stderr}`);

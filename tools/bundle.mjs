@@ -63,8 +63,8 @@ export function assertBundled(modules, inputs) {
     }
 }
 
-async function bundle(base) {
-    const result = await build({ ...BUNDLE_OPTIONS, absWorkingDir: base, entryPoints: [ENTRY] });
+export async function renderBundle(entry, base = root) {
+    const result = await build({ ...BUNDLE_OPTIONS, absWorkingDir: base, entryPoints: [entry] });
     const inputs = Object.keys(result.metafile.inputs).map((name) => path.posix.normalize(name));
 
     return { code: result.outputFiles[0].text, inputs };
@@ -95,7 +95,7 @@ function headerFor(meta) {
 export async function renderRelease(base = root) {
     const modules = await checkGraph(base);
     const meta = await metadata(base);
-    const bundled = await bundle(base);
+    const bundled = await renderBundle(ENTRY, base);
 
     assertBundled(modules, bundled.inputs);
 

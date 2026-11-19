@@ -8,7 +8,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const vm = require("node:vm");
-const { fixture, hostFor, calls } = require("../../helpers.cjs");
+
 
 const load = () => import("../../../tools/bundle.mjs");
 // The global the artifact defines, which a native harness reaches into.
@@ -76,35 +76,10 @@ test("loading it needs no Node and no macOS, and declares run() for osascript", 
     const context = await loaded();
 
     assert.equal(typeof context.run, "function");
-    assert.equal(typeof context[ARTIFACT].createMacHost, "function");
+    assert.deepEqual(Object.keys(context[ARTIFACT]), ["run"]);
     assert.equal(context.require, undefined);
     assert.equal(context.process, undefined);
     assert.equal(context.ObjC, undefined);
-});
-
-test("the loaded artifact makes the same decisions the source does", async () => {
-    const context = await loaded();
-
-    for (const [folder, expected] of [[null, "/work"], ["inside", "/work"], ["parent", "/"]]) {
-        const io = fixture({ "/work/a": { kind: "alias", target: "/work" } }, {
-            load: () => ({ terminal: "ghostty", folder, link: "follow" })
-        });
-
-        // An array from the artifact's own realm, so compared by what it holds.
-        assert.equal(context[ARTIFACT].execute(["/work/a"], hostFor(io)).kind, "opened");
-        assert.deepEqual(io.events.filter(([name]) => name === "launch"), [["launch", expected, "ghostty"]], folder);
-    }
-});
-
-test("the loaded artifact refuses what the source refuses, before touching anything", async () => {
-    const context = await loaded();
-    const io = fixture();
-
-    const outcome = context[ARTIFACT].execute(["/a", "/b"], hostFor(io));
-
-    assert.equal(outcome.kind, "refused");
-    assert.equal(outcome.refusal.kind, "multipleSelection");
-    assert.deepEqual(calls(io), []);
 });
 
 test("the manifest is the artifact's SHA-256 and its published name", async () => {

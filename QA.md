@@ -361,18 +361,18 @@ changed meanwhile applies to the next run.
 
 ## macOS integration gate
 
-`npm run test:integration:macos` checks the committed artifact against the
-source, compiles it with osacompile, and appends a test body in place of its
-entry point. On a machine that is not a Mac it exits 2 and says it did not
-run; it never reports a skip as a pass.
+`npm run test:integration:macos` renders and compiles the production script
+with osacompile. It exercises the real Foundation adapters in a separate
+bundle rendered from `tests/integration/entry.cjs`. The Shortcuts harness
+runs the production script. On hosts without macOS the native suite exits 2.
 
 Against disposable fixtures -- real Finder aliases written as bookmark files,
 relative, broken and cyclic symbolic links, a package, a folder that cannot
 be entered, and a folder named with a quote, a newline, `$`, a backtick, `;`,
 `&` and an emoji -- it runs the real adapters for 49 checks: classification of
-each kind; the package question, and its answer when macOS cannot give one;
+each kind; package metadata, including a fault when macOS cannot read it;
 alias resolution, and a broken target reported as that; Path, NSString,
-NSURL, file-reference URL and Shortcuts-envelope input; a URL for a link to a
+NSURL and file-reference URL input; a URL for a link to a
 folder, trailing slash and all; a file-reference URL written as text; each
 policy's destination, including the root
 opening without a question; component-ordered traversal; a missing item
@@ -380,8 +380,7 @@ reported with its NSError domain and code; and the refusals -- two items, a
 file named with a trailing slash, a slashed link that leads to a file or to a
 Finder alias, a cycle, a folder that cannot be entered, and a saved setting
 that is not recognised.
-Each refusal must carry its own message; a failure of any other kind does not
-pass for it.
+The native assertions check the expected refusal or fault kind.
 
 It makes a disk image, puts a folder on it, writes an alias to that folder,
 and ejects the image. Resolving the alias must fail, and the image must not be
