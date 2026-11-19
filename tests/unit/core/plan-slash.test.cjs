@@ -53,7 +53,7 @@ test("a slashed link that leads to a file is refused, whichever way it would ope
             LEADS_TO_FILE,
             link
         );
-        assert.equal(calls(io).includes("chooseLink"), false, link);
+        assert.equal(calls(io).includes("ask:link"), false, link);
     }
 });
 
@@ -68,19 +68,19 @@ test("a slashed link to a folder is followed once, and then asked about as usual
 
     assert.equal(destination(selected("/work/link", true), DEFAULTS, io, io), "/target");
     assert.equal(calls(io).filter((name) => name === "readLink").length, 1, "read once, for the check and the answer");
-    assert.deepEqual(calls(io).filter((name) => name.startsWith("choose")), ["chooseLink", "chooseFolderMode"]);
+    assert.deepEqual(calls(io).filter((name) => name.startsWith("ask:")), ["ask:link", "ask:folder"]);
 });
 
 test("a slashed link to a folder may still open where the link sits", () => {
     const io = fixture({ "/work/link": { kind: "symlink", target: "/target" }, "/target": directory }, {
-        chooseLink: () => "stay"
+        ask: () => "stay"
     });
 
     assert.equal(destination(selected("/work/link", true), DEFAULTS, io, io), "/work");
 });
 
 test("without a slash, a link to a file or to nothing is not followed unless chosen", () => {
-    const io = fixture({ "/work/gone": { kind: "symlink", target: "/missing" } }, { chooseLink: () => "stay" });
+    const io = fixture({ "/work/gone": { kind: "symlink", target: "/missing" } }, { ask: () => "stay" });
 
     assert.equal(destination(selected("/work/gone"), DEFAULTS, io, io), "/work");
     assert.equal(calls(io).includes("readLink"), false);

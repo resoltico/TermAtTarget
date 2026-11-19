@@ -2,6 +2,7 @@
 
 const { absolutePath, parentPath } = require("./paths.js");
 const { physicalPath, resolveTarget } = require("./resolve.js");
+const { askAnswer, folderQuestion, linkQuestion } = require("./questions.js");
 const { refuse, fault } = require("./outcomes.js");
 const { FOLDER, LINK } = require("./vocabulary.js");
 
@@ -12,48 +13,29 @@ const { FOLDER, LINK } = require("./vocabulary.js");
  * alias or a symbolic link either opens where it itself sits, or has the same
  * rules applied to what it points at.
  *
- * `files` answers what an item is and where a link leads; `ask` puts the
+ * `files` answers what an item is and where a link leads; the host puts the
  * questions to the person.
  */
 
 const ROOT = "/";
 
-// Whether to follow a link to its target or stay where the link sits.
-function linkChoice(path, kind, settings, ask) {
-    const choice = settings.link === LINK.ASK
-        ? ask.chooseLink(path, kind)
+// Configured choices were validated by settingsFrom; only ask reads a new answer.
+function linkChoice({ path, kind }, settings, files, request) {
+    return settings.link === LINK.ASK
+        ? askAnswer(linkQuestion(path, kind, request.terminal, files), request.ask)
         : settings.link;
-
-    if (choice !== LINK.STAY && choice !== LINK.FOLLOW) {
-        throw fault("invalidAnswer", { question: "linkLocation" });
-    }
-
-    return choice;
 }
 
-/*
- * Inside the folder, or at its parent. Where the two are the same place -- the
- * root -- there is nothing to ask. `via` is the kind of link the folder was
- * reached through, or null, so a question can say which folder it is about.
- */
-function folderDestination(path, via, settings, ask) {
+function folderDestination({ path, via }, settings, files, request) {
     if (path === ROOT) {
         return ROOT;
     }
 
     const choice = settings.folder === FOLDER.ASK
-        ? ask.chooseFolderMode(path, via)
+        ? askAnswer(folderQuestion(path, via, request.terminal, files), request.ask)
         : settings.folder;
 
-    if (choice === FOLDER.INSIDE) {
-        return path;
-    }
-
-    if (choice === FOLDER.PARENT) {
-        return parentPath(path);
-    }
-
-    throw fault("invalidAnswer", { question: "folderLocation" });
+    return choice === FOLDER.INSIDE ? path : parentPath(path);
 }
 
 // A path ending in "/" cannot name a file, and a Finder alias is a file.
@@ -88,7 +70,7 @@ function slashedTarget(selection, files) {
  * link the person chose to follow -- what it points at. Null when the answer
  * is the link's own location, which needs no more inspection.
  */
-function standIn(selection, settings, files, ask) {
+function standIn(selection, settings, files, request) {
     const facts = files.inspect(selection.path);
 
     assertSlashFits(selection, facts);
@@ -99,27 +81,27 @@ function standIn(selection, settings, files, ask) {
 
     const checked = selection.slashed ? slashedTarget(selection, files) : null;
 
-    if (linkChoice(selection.path, facts.kind, settings, ask) === LINK.STAY) {
+    if (linkChoice({ path: selection.path, kind: facts.kind }, settings, files, request) === LINK.STAY) {
         return null;
     }
 
     return { ...checked ?? resolveTarget(selection.path, files), via: facts.kind };
 }
 
-function destination(selection, settings, files, ask) {
+function destination(selection, settings, files, request) {
     if (selection === null) {
         // Choosing a destination is already an explicit "inside" operation.
-        return absolutePath(files.pathOf(ask.chooseFolder()));
+        return absolutePath(files.pathOf(request.chooseFolder()));
     }
 
-    const item = standIn(selection, settings, files, ask);
+    const item = standIn(selection, settings, files, request);
 
     if (item === null) {
         return parentPath(selection.path);
     }
 
     if (item.facts.kind === "directory") {
-        return folderDestination(item.path, item.via, settings, ask);
+        return folderDestination(item, settings, files, request);
     }
 
     if (item.facts.kind !== "file") {

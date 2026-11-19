@@ -1,6 +1,7 @@
 "use strict";
 
-const { FOLDER, LINK, TERMINALS } = require("./vocabulary.js");
+const { FOLDER, LINK, TERMINALS, terminalApp } = require("./vocabulary.js");
+const { presentName } = require("./present.js");
 const { refuse } = require("./outcomes.js");
 const { render } = require("./messages.js");
 
@@ -13,10 +14,21 @@ const { render } = require("./messages.js");
  * run says which setting it is and how to change it.
  */
 
+const optionLabel = (locale, value) => render(locale, `answer.${value}.option`);
+
 const SETTINGS = Object.freeze({
-    terminal: Object.freeze({ values: Object.freeze(TERMINALS.map((terminal) => terminal.id)), initial: "terminal" }),
-    folder: Object.freeze({ values: Object.freeze(Object.values(FOLDER)), initial: FOLDER.ASK }),
-    link: Object.freeze({ values: Object.freeze(Object.values(LINK)), initial: LINK.ASK })
+    terminal: Object.freeze({
+        values: Object.freeze(TERMINALS.map((terminal) => terminal.id)),
+        initial: "terminal",
+        requiresInstalled: true,
+        valueLabel: (locale, value) => terminalApp(value).name
+    }),
+    folder: Object.freeze({
+        values: Object.freeze(Object.values(FOLDER)), initial: FOLDER.ASK, requiresInstalled: false, valueLabel: optionLabel
+    }),
+    link: Object.freeze({
+        values: Object.freeze(Object.values(LINK)), initial: LINK.ASK, requiresInstalled: false, valueLabel: optionLabel
+    })
 });
 
 const KEYS = Object.freeze(Object.keys(SETTINGS));
@@ -59,4 +71,11 @@ function settingsFrom(saved) {
     })));
 }
 
-module.exports = { SETTINGS, KEYS, knownSetting, settingsFrom, describeSaved };
+function formatSaved(saved, locale) {
+    return presentName(typeof saved === "string" ? saved : describeSaved(saved, locale));
+}
+
+const settingLabel = (locale, key) => render(locale, `settings.${key}.label`);
+const valueLabel = (locale, key, value) => SETTINGS[key].valueLabel(locale, value);
+
+module.exports = { SETTINGS, KEYS, knownSetting, settingsFrom, describeSaved, formatSaved, settingLabel, valueLabel };

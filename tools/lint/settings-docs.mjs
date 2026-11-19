@@ -4,20 +4,20 @@ import { readFromDisk } from "./consistency.mjs";
 /*
  * The settings as the documents list them: README's table and INSTALL.txt's
  * Settings section must name every setting and every value in the words the
- * settings screen shows (src/runtime/settings-screen.js), and every terminal
+ * settings catalog declares (src/core/messages.js), and every terminal
  * app by its name (src/core/vocabulary.js). Those words are written once, in
  * the source; a setting or value added there without the documents fails here.
  */
 
 const require = createRequire(import.meta.url);
-const { SETTINGS: WORDS, VALUES } = require("../../src/runtime/settings-screen.js");
-const { TERMINALS } = require("../../src/core/vocabulary.js");
+const { SOURCE_LOCALE } = require("../../src/core/messages.js");
+const { SETTINGS, settingLabel, valueLabel } = require("../../src/core/settings.js");
 
 // Each setting's label, and the labels of its values.
-export function settingWords(words = WORDS, values = VALUES, terminals = TERMINALS) {
-    return Object.entries(words).map(([key, { label }]) => ({
-        label,
-        values: key === "terminal" ? terminals.map((terminal) => terminal.name) : Object.values(values[key])
+export function settingWords() {
+    return Object.entries(SETTINGS).map(([key, { values }]) => ({
+        label: settingLabel(SOURCE_LOCALE, key),
+        values: values.map((value) => valueLabel(SOURCE_LOCALE, key, value))
     }));
 }
 

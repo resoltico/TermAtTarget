@@ -40,7 +40,7 @@ function createMacHost() {
         files,
         preferences: createPreferences(bridge, PREFERENCES_DOMAIN),
         terminals: createTerminalApps(bridge, files),
-        questions: createQuestions(app, files),
+        ...createQuestions(app),
         settingsScreen: createSettingsScreen(app),
         report: createFailureReport(app)
     };

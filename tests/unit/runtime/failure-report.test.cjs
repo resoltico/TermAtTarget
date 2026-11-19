@@ -51,7 +51,7 @@ test("the settings hint and parent remedy follow the declared remedies", () => {
 
     assert.deepEqual(report(true), {
         heading: "kitty can't open this folder",
-        message: `${base} The parent folder has no "$", so kitty can open it. ${HINT}`
+        message: `${base} The parent folder has no "$", so kitty can open it. Choose Open in Parent. ${HINT}`
     });
     assert.deepEqual(report(false), { heading: "kitty can't open this folder", message: `${base} ${HINT}` });
     assert.deepEqual(failureReport(refuse("settingUnrecognised", { setting: "link", saved: "unknown" })), {
@@ -74,7 +74,7 @@ test("native faults keep their specific operation and present path text safely",
     assert.deepEqual(failureReport(refuse("aliasTargetMissing", { native: { ...DETAILS, operation: "resolveAlias" } })), {
         heading: "The alias's original can't be found",
         message: "macOS could not resolve the alias target for /x. macOS reported Folder missing (TestDomain, code 3). " +
-            "You can open the folder containing the alias or change the Finder alias setting."
+            "Choose Open Where It Is to open the folder containing the alias, or set Finder aliases to Open where it is in the settings."
     });
 });
 
@@ -108,6 +108,12 @@ test("every declared outcome has words and every catalog entry has a consumer", 
     const paramsFor = (names) => Object.fromEntries(names.map((name) => [name, sample[name]]));
     const expected = [
         "saved.date", "saved.opaque", "native.noDetails", "terminalReadsVariables.parent",
+        "start.ready", "start.missing", "start.unrecognised", "chooseFolder.prompt",
+        "folder.question", "folder.folder", "folder.package", "folder.via.alias", "folder.via.symlink", "link.alias", "link.symlink",
+        ...["settings", "choose", "inside", "parent", "stay", "follow.alias", "follow.symlink"].map((name) => `answer.${name}.action`),
+        ...["inside", "parent", "stay", "follow", "ask"].map((name) => `answer.${name}.option`),
+        ...["terminal", "folder", "link"].map((name) => `settings.${name}.label`),
+        "settings.row", "settings.unrecognised", "settings.notInstalled",
         ...["deadline", "lost", "unstopped", "pid", "cleanup"].map((name) => `launchUnconfirmed.${name}`),
         ...Object.values(NATIVE_OPERATIONS).map((operation) => `native.${operation}.message`)
     ];

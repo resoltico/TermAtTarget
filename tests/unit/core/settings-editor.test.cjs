@@ -136,3 +136,10 @@ test("a terminal app that is not installed is not an answer, though it is a valu
 
     assert.throws(() => edit(io), { kind: "invalidAnswer", params: { question: "settingValue" } });
 });
+
+test("folder and alias values remain available without any installed terminal app", () => {
+    const io = picking([["folder", "parent"], ["link", "stay"]], { isInstalled: () => false });
+
+    edit(io);
+    assert.deepEqual(io.events.filter(([name]) => name === "save"), [["save", "folder", "parent"], ["save", "link", "stay"]]);
+});

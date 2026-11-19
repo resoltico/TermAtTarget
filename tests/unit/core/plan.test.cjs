@@ -8,7 +8,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { destination } = require("../../../src/core/plan.js");
-const { fixture, calls, DEFAULTS } = require("../../helpers.cjs");
+const { fixture, calls, asked, DEFAULTS } = require("../../helpers.cjs");
 
 const directory = { kind: "directory" };
 const file = { kind: "file" };
@@ -47,16 +47,19 @@ test("asked, the answer decides, and the question says the folder was selected",
     const io = fixture();
 
     assert.equal(destination(selected("/work"), DEFAULTS, ...ports(io)), "/work");
-    assert.deepEqual(io.events.at(-1), ["chooseFolderMode", "/work", null]);
+    assert.deepEqual(asked(io, "folder")[0], {
+        id: "folder", params: { terminal: "Terminal", via: null, subject: "folder", name: "work", parent: "/" },
+        answers: ["parent", "inside"], usual: "inside"
+    });
 
-    io.chooseFolderMode = () => "parent";
+    io.ask = () => "parent";
     assert.equal(destination(selected("/work"), DEFAULTS, ...ports(io)), "/");
 });
 
 test("an answer that is neither inside nor parent is refused", () => {
-    const io = fixture({}, { chooseFolderMode: () => "bad" });
+    const io = fixture({}, { ask: () => "bad" });
 
-    assert.throws(() => destination(selected("/work"), DEFAULTS, ...ports(io)), { kind: "invalidAnswer", params: { question: "folderLocation" } });
+    assert.throws(() => destination(selected("/work"), DEFAULTS, ...ports(io)), { kind: "invalidAnswer", params: { question: "folder" } });
 });
 
 test("choosing a folder opens inside it, even when folders open at their parent", () => {
@@ -93,5 +96,5 @@ test("the filesystem is asked through files, and the person through ask", () => 
 
     assert.equal(destination(selected("/work/a"), DEFAULTS, fs, person), "/work");
     assert.deepEqual(calls(fs), ["inspect", "inspect", "resolveAlias", "inspect"]);
-    assert.deepEqual(calls(person), ["chooseLink", "chooseFolderMode"]);
+    assert.deepEqual(calls(person), ["ask:link", "ask:folder"]);
 });

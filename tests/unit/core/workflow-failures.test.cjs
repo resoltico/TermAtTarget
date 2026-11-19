@@ -17,10 +17,10 @@ function userCancelled() {
 
 test("a cancel at any question returns quietly and launches nothing", () => {
     const stages = [
-        [[], {}, "start"],
+        [[], {}, "ask"],
         [[], {}, "chooseFolder"],
-        [["/work"], {}, "chooseFolderMode"],
-        [["/a"], { "/a": { kind: "alias" } }, "chooseLink"]
+        [["/work"], {}, "ask"],
+        [["/a"], { "/a": { kind: "alias" } }, "ask"]
     ];
 
     for (const [input, entries, stage] of stages) {
@@ -32,7 +32,7 @@ test("a cancel at any question returns quietly and launches nothing", () => {
 });
 
 test("a cancel in the settings returns quietly too", () => {
-    const io = fixture({}, { start: () => "settings", pickSetting: userCancelled });
+    const io = fixture({}, { ask: () => "settings", pickSetting: userCancelled });
 
     assert.deepEqual(execute([], hostFor(io)), { kind: "cancelled" });
 });

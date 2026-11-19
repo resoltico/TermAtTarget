@@ -49,11 +49,11 @@ test("whether a folder is a package is its own question", () => {
     ]);
 });
 
-test("a package question macOS cannot answer reads as not a package", () => {
-    for (const entry of [{ resourceError: true }, { resourceMissing: true }]) {
+test("a package metadata failure is available to the core", () => {
+    for (const [entry, kind] of [[{ resourceError: true }, "native"], [{ resourceMissing: true }, "missingResourceValue"]]) {
         const { bridge } = fakeFoundation({ "/folder": { type: "directory", ...entry } });
 
-        assert.equal(isPackage(bridge, "/folder"), false, JSON.stringify(entry));
+        assert.throws(() => isPackage(bridge, "/folder"), { kind });
     }
 });
 

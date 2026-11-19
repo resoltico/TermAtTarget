@@ -41,7 +41,7 @@ function run(argv) {
         return JSON.stringify(presentMode(JSON.parse(argv[2])));
     }
     if (mode === "dialogs") {
-        return JSON.stringify(dialogsMode(files, base));
+        return JSON.stringify(dialogsMode(host, base));
     }
     insist(mode === "main", "recognized test mode");
     const passed = [];
@@ -67,7 +67,7 @@ function run(argv) {
     record(host.files.inspect(base + "/broken-alias").kind === "alias", "broken alias classification without target resolution");
     record(host.files.inspect(base + "/relative-link").kind === "symlink", "lstat-like symlink classification");
     record(files.isPackage(base + "/Demo.app") === true && files.isPackage(base + "/folder") === false, "package metadata, asked on its own");
-    record(files.isPackage(base + "/missing") === false, "an unanswerable package question reads as a folder");
+    fails(function () { files.isPackage(base + "/missing"); }, kindIs("native"), "package metadata failure reaches the core");
     record(host.files.pathOf(Path(base + "/folder-alias")) === base + "/folder-alias", "Path preserves alias pathname");
     record(host.files.pathOf($(base + "/file.txt")) === base + "/file.txt", "NSString input");
     const reference = $.NSURL.fileURLWithPath(base + "/file.txt").fileReferenceURL;
@@ -99,14 +99,8 @@ function run(argv) {
             files: host.files,
             preferences: { load: function () { return { terminal: null, folder: folder, link: link }; } },
             terminals: { isInstalled: function () { return true; }, launch: function (id, path) { opened.push(path); } },
-            questions: function () {
-                return {
-                    start: function () { return "choose"; },
-                    chooseFolder: function () { return Path(base + "/folder"); },
-                    chooseFolderMode: function () { return "inside"; },
-                    chooseLink: function () { return "follow"; }
-                };
-            }
+            ask: function (question) { return question.usual; },
+            chooseFolder: function () { return Path(base + "/folder"); }
         };
     }
     function check(input, folder, link, expected, label) {

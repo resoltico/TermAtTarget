@@ -3,7 +3,8 @@
 const { SOURCE_LOCALE, render } = require("../core/messages.js");
 const { CHANGE_SETTINGS, isFault, isRefusal, remediesOf } = require("../core/outcomes.js");
 const { FOLDER, LINK, terminalApp } = require("../core/vocabulary.js");
-const { SETTINGS, describeSaved } = require("../core/settings.js");
+const { answerLabel } = require("../core/questions.js");
+const { SETTINGS, formatSaved, valueLabel } = require("../core/settings.js");
 const { presentName, presentPath } = require("../core/present.js");
 const { alert } = require("./standard-additions.js");
 
@@ -49,7 +50,7 @@ const REFUSAL_MESSAGES = {
     settingUnrecognised({ setting, saved }) {
         return say("settingUnrecognised.message", {
             setting,
-            saved: typeof saved === "string" ? presentName(saved) : presentName(describeSaved(saved, SOURCE_LOCALE)),
+            saved: formatSaved(saved, SOURCE_LOCALE),
             values: SETTINGS[setting].values.join(", ")
         });
     },
@@ -64,7 +65,8 @@ const REFUSAL_MESSAGES = {
 
 const FAULT_MESSAGES = {
     native: nativeMessage,
-    invalidAnswer: () => say("invalidAnswer.message")
+    invalidAnswer: () => say("invalidAnswer.message"),
+    tooManyAnswers: () => say("tooManyAnswers.message")
 };
 
 function presentParams(params) {
@@ -95,8 +97,12 @@ function refusalHeading(kind, params) {
 }
 
 const REMEDY_MESSAGES = {
-    [FOLDER.PARENT]: ({ terminal }) => say("terminalReadsVariables.parent", { terminal }),
-    [LINK.STAY]: () => say("aliasTargetMissing.message"),
+    [FOLDER.PARENT]: ({ terminal }) => say("terminalReadsVariables.parent", {
+        terminal, action: answerLabel(SOURCE_LOCALE, FOLDER.PARENT)
+    }),
+    [LINK.STAY]: () => say("aliasTargetMissing.message", {
+        action: answerLabel(SOURCE_LOCALE, LINK.STAY), option: valueLabel(SOURCE_LOCALE, "link", LINK.STAY)
+    }),
     [CHANGE_SETTINGS]: () => SETTINGS_HINT
 };
 

@@ -68,14 +68,14 @@ things go rather than merely passing or failing:
 `src/core/` decides: the shared vocabulary (`src/core/vocabulary.js` -- the
 answers, the settings' values and the terminal apps), the settings, path rules,
 link resolution, the destination policy, and the run itself. It names nothing
-native and is tested in Node with nothing standing in for it. Wording shown to
-a person lives with the questions in `src/runtime/`; the meaning of each answer
-lives in the core, and a test fails if a value has no words.
+native and is tested in Node with nothing standing in for it. The core declares
+questions in `src/core/questions.js` and owns their wording in
+`src/core/messages.js`.
 
 `src/runtime/` touches macOS: Foundation's answers about files, the saved
 preferences, the questions and settings lists, and the launch, which a deadline
 bounds. The core asks through ports -- `files`, `preferences`, `terminals`,
-`questions` and `settingsScreen`, assembled in `src/runtime/host.js`. Each
+`ask`, `chooseFolder` and `settingsScreen`, assembled in `src/runtime/host.js`. Each
 adapter takes the bridge (`ns`, `objc` and an out-parameter maker) as a value,
 so its tests hand it a fake. Every program the action runs, every terminal
 app's bundle identifier and the preferences domain are named in

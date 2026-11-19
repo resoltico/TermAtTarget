@@ -1,9 +1,8 @@
 "use strict";
 
 /*
- * The words the core and every question share: the answers a person can give,
- * and the terminal apps a destination can be opened in. Wording shown to a
- * person lives with the questions; these are what the answers mean.
+ * The answers a person can give and the terminal apps a destination can be
+ * opened in. The message catalog supplies their wording.
  *
  * The folder, link and terminal values are also what is saved as settings, so
  * each is a stored format: renaming one turns every saved copy of it into a

@@ -77,13 +77,9 @@ function inspect(bridge, path) {
     return { kind: "file" };
 }
 
-// For a question's wording only, so an answer macOS cannot give reads as "no".
+// Package metadata is optional to the core and does not affect destinations.
 function isPackage(bridge, path) {
-    try {
-        return resourceBoolean(bridge, path, bridge.ns.NSURLIsPackageKey);
-    } catch {
-        return false;
-    }
+    return resourceBoolean(bridge, path, bridge.ns.NSURLIsPackageKey);
 }
 
 module.exports = { attributes, fileType, resourceBoolean, inspect, isPackage };

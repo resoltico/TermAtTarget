@@ -18,18 +18,18 @@ const { SETTINGS, KEYS, knownSetting } = require("./settings.js");
 function rowsOf(saved, terminals) {
     return KEYS.map((key) => {
         const value = knownSetting(key, saved[key]);
-        const available = key !== "terminal" || value === null || terminals.isInstalled(value);
+        const available = !SETTINGS[key].requiresInstalled || value === null || terminals.isInstalled(value);
 
         return { key, value, saved: saved[key], available };
     });
 }
 
 function valuesFor(key, terminals) {
-    if (key !== "terminal") {
+    if (!SETTINGS[key].requiresInstalled) {
         return SETTINGS[key].values;
     }
 
-    const installed = SETTINGS.terminal.values.filter((id) => terminals.isInstalled(id));
+    const installed = SETTINGS[key].values.filter((id) => terminals.isInstalled(id));
 
     if (installed.length === 0) {
         throw refuse("noTerminalInstalled");

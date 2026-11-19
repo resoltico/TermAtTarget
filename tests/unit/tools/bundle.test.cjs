@@ -59,7 +59,7 @@ test("the code is minified but its names are kept", async () => {
     const code = artifact.slice(artifact.indexOf("*/\n\n") + 4, artifact.indexOf("/*!"));
 
     assert.ok(code.split("\n").length < 20, "whitespace is removed");
-    assert.match(code, /function folderDestination\(path,via,settings,ask\)/u);
+    assert.match(code, /function folderDestination\(\{path,via\},settings,files,request\)/u);
 });
 
 test("nothing in it is meant to be edited: there is no configuration to inline", async () => {

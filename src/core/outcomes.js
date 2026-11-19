@@ -33,6 +33,8 @@ const REFUSALS = Object.freeze({
 
 const FAULTS = Object.freeze({
     invalidAnswer: ["question"],
+    tooManyAnswers: ["question"],
+    duplicateLabels: [],
     unknownItemKind: ["path"],
     relativeResolutionPath: ["path"],
     native: ["operation", "path", "domain", "code", "description"],

@@ -33,21 +33,20 @@ test("Foundation and AppKit are imported, and the questions get Standard Additio
 
 test("the host has every port the core asks through, each with what the core calls", () => {
     inWorld((host) => {
-        assert.deepEqual(Object.keys(host), ["files", "preferences", "terminals", "questions", "settingsScreen", "report"]);
-        assert.equal(typeof host.report, "function");
+        assert.deepEqual(Object.keys(host), ["files", "preferences", "terminals", "ask", "chooseFolder", "settingsScreen", "report"]);
+        for (const name of ["ask", "chooseFolder", "report"]) {
+            assert.equal(typeof host[name], "function", name);
+        }
 
         const ports = {
-            files: ["pathOf", "inspect", "resolveAlias", "readLink", "validateDirectory"],
+            files: ["pathOf", "inspect", "isPackage", "home", "resolveAlias", "readLink", "validateDirectory"],
             preferences: ["load", "save"],
             terminals: ["isInstalled", "launch"],
-            questions: ["start", "chooseFolder", "chooseFolderMode", "chooseLink"],
             settingsScreen: ["pickSetting", "pickValue"]
         };
-        const made = { ...host, questions: host.questions("Terminal") };
-
         for (const [port, names] of Object.entries(ports)) {
             for (const name of names) {
-                assert.equal(typeof made[port][name], "function", `${port}.${name}`);
+                assert.equal(typeof host[port][name], "function", `${port}.${name}`);
             }
         }
     });

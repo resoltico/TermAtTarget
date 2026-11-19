@@ -16,6 +16,8 @@ const DEFAULTS = Object.freeze({ terminal: "terminal", folder: "ask", link: "ask
 // The filesystem half: what an item is, and where a link or alias points.
 function filesystem(items, record) {
     return {
+        home: () => "/Users/test",
+        isPackage: (path) => items[path]?.package === true,
         pathOf(value) {
             record("path", value);
             return String(value);
@@ -50,21 +52,13 @@ function filesystem(items, record) {
 // The person's half: the questions, each answered the usual way.
 function person(record) {
     return {
-        start(setup) {
-            record("start", setup);
-            return "choose";
+        ask(question) {
+            record("ask", question);
+            return question.usual;
         },
         chooseFolder() {
             record("chooseFolder");
             return "/work";
-        },
-        chooseLink(path, kind) {
-            record("chooseLink", path, kind);
-            return "follow";
-        },
-        chooseFolderMode(path, via) {
-            record("chooseFolderMode", path, via);
-            return "inside";
         },
         pickSetting(rows) {
             record("pickSetting", rows);
@@ -104,29 +98,29 @@ function fixture(entries = {}, overrides = {}, saved = {}) {
         events.push(event);
     };
 
-    return { events, items, ...filesystem(items, record), ...person(record), ...mac(record, saved), ...overrides };
+    return { events, items, terminal: "Terminal", ...filesystem(items, record), ...person(record), ...mac(record, saved), ...overrides };
 }
 
-// The host the workflow is given, every port answered by the one fixture. The
-// name each set of questions was made for is kept apart from the calls.
+// The host the workflow is given, every port answered by the fixture.
 function hostFor(io) {
-    io.namedFor = [];
-
     return {
         files: io,
         preferences: io,
         terminals: io,
-        questions(name) {
-            io.namedFor.push(name);
-            return io;
-        },
+        ask: io.ask,
+        chooseFolder: io.chooseFolder,
         settingsScreen: io
     };
 }
 
-// The names of the calls made, in order.
-function calls(io) {
-    return io.events.map(([name]) => name);
+function asked(io, id) {
+    return io.events.filter(([name, question]) => name === "ask" && question.id === id)
+        .map(([, question]) => question);
 }
 
-module.exports = { fixture, hostFor, calls, NOTHING_SAVED, DEFAULTS };
+// The names of the calls made, in order.
+function calls(io) {
+    return io.events.map(([name, question]) => name === "ask" ? `ask:${question.id}` : name);
+}
+
+module.exports = { fixture, hostFor, calls, asked, NOTHING_SAVED, DEFAULTS };

@@ -1,7 +1,8 @@
 "use strict";
 
 const { selectedPath, parentPath } = require("./paths.js");
-const { isCancellation, isRefusal, refuse, fault } = require("./outcomes.js");
+const { isCancellation, isRefusal, refuse } = require("./outcomes.js");
+const { askAnswer, startQuestion } = require("./questions.js");
 const { destination } = require("./plan.js");
 const { START, SETUP, terminalApp } = require("./vocabulary.js");
 const { KEYS, knownSetting, settingsFrom } = require("./settings.js");
@@ -16,8 +17,7 @@ const { editSettings } = require("./settings-editor.js");
  * which is how either is put right.
  *
  * The host is a set of ports: `files`, the filesystem; `preferences`, the
- * saved settings; `terminals`, the apps; `questions(name)`, the questions,
- * worded for the app they are about (null when it is not known yet); and
+ * saved settings; `terminals`, the apps; `ask` and `chooseFolder`, the questions; and
  * `settingsScreen`, the settings list.
  *
  * Runs are independent apart from the settings: nothing else is written and
@@ -36,14 +36,7 @@ function setupOf(saved, terminals) {
 function wantsSettings(saved, host) {
     const setup = setupOf(saved, host.terminals);
     const terminal = terminalApp(knownSetting("terminal", saved.terminal));
-    const choice = host.questions(terminal?.name ?? null).start(setup);
-    const offered = setup === SETUP.READY ? [START.CHOOSE, START.SETTINGS] : [START.SETTINGS];
-
-    if (!offered.includes(choice)) {
-        throw fault("invalidAnswer", { question: "start" });
-    }
-
-    return choice === START.SETTINGS;
+    return askAnswer(startQuestion(terminal?.name ?? null, setup), host.ask) === START.SETTINGS;
 }
 
 function installed(id, terminals) {
@@ -69,7 +62,8 @@ function assertLiteral(terminal, path) {
 function open(selection, saved, host) {
     const settings = settingsFrom(saved);
     const terminal = installed(settings.terminal, host.terminals);
-    const path = destination(selection, settings, host.files, host.questions(terminal.name));
+    const request = { terminal: terminal.name, ask: host.ask, chooseFolder: () => host.chooseFolder(terminal.name) };
+    const path = destination(selection, settings, host.files, request);
 
     host.files.validateDirectory(path);
     assertLiteral(terminal, path);

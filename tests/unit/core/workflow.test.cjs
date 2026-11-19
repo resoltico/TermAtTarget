@@ -10,17 +10,22 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { assertRefused } = require("../../outcome-checks.cjs");
 const { execute } = require("../../../src/core/workflow.js");
-const { fixture, hostFor, calls } = require("../../helpers.cjs");
+const { fixture, hostFor, calls, asked } = require("../../helpers.cjs");
 
 test("a run reads the settings, decides, validates, and launches once", () => {
     const io = fixture();
 
     assert.deepEqual(execute(["/work"], hostFor(io)), { kind: "opened", terminal: "terminal", path: "/work" });
-    assert.deepEqual(calls(io), ["path", "load", "installed", "inspect", "chooseFolderMode", "validate", "launch"]);
+    assert.deepEqual(calls(io), ["path", "load", "installed", "inspect", "ask:folder", "validate", "launch"]);
 });
 
 test("the folder launched is the folder decided and validated, in the saved terminal app", () => {
-    const io = fixture({}, { chooseFolderMode: () => "parent" }, { terminal: "ghostty" });
+    const io = fixture({}, {
+        ask({ params }) {
+            assert.equal(params.terminal, "Ghostty", "the question names the saved app");
+            return "parent";
+        }
+    }, { terminal: "ghostty" });
     const host = hostFor(io);
 
     execute(["/work"], host);
@@ -29,7 +34,6 @@ test("the folder launched is the folder decided and validated, in the saved term
         ["validate", "/"],
         ["launch", "/", "ghostty"]
     ]);
-    assert.deepEqual(io.namedFor, ["Ghostty"], "the questions name the app");
 });
 
 test("with nothing saved, Terminal is the app and every folder is asked about", () => {
@@ -38,14 +42,14 @@ test("with nothing saved, Terminal is the app and every folder is asked about", 
 
     execute(["/work"], host);
     assert.deepEqual(io.events.at(-1), ["launch", "/work", "terminal"]);
-    assert.deepEqual(io.namedFor, ["Terminal"]);
+    assert.deepEqual(asked(io, "folder").map(({ params }) => params.terminal), ["Terminal"]);
 });
 
 test("saved settings decide without asking", () => {
     const io = fixture({ "/work/a": { kind: "alias", target: "/work" } }, {}, { folder: "parent", link: "follow" });
 
     execute(["/work/a"], hostFor(io));
-    assert.equal(calls(io).some((name) => name.startsWith("choose")), false);
+    assert.equal(calls(io).some((name) => name.startsWith("ask:")), false);
     assert.deepEqual(io.events.at(-1), ["launch", "/", "terminal"]);
 });
 

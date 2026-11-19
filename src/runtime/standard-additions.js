@@ -51,6 +51,10 @@ function ask(app, text, answers) {
 
 // One item from a list, or null when the person backs out of it.
 function pick(app, items, options) {
+    if (new Set(items).size !== items.length) {
+        throw fault("duplicateLabels", {});
+    }
+
     const answer = answered(() => app.chooseFromList(items, {
         ...options,
         multipleSelectionsAllowed: false,

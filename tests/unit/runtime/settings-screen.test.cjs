@@ -8,8 +8,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createSettingsScreen, SETTINGS: WORDS, VALUES } = require("../../../src/runtime/settings-screen.js");
-const { SETTINGS, KEYS } = require("../../../src/core/settings.js");
+const { createSettingsScreen } = require("../../../src/runtime/settings-screen.js");
 
 // Standard Additions' list, answering with the item at `index`, or backing out.
 function lists(index = 0) {
@@ -29,14 +28,6 @@ const ROWS = [
     { key: "folder", value: "ask", saved: null, available: true },
     { key: "link", value: "stay", saved: "stay", available: true }
 ];
-
-test("every setting and every value the core offers has words", () => {
-    assert.deepEqual(Object.keys(WORDS), KEYS);
-
-    for (const key of ["folder", "link"]) {
-        assert.deepEqual(Object.keys(VALUES[key]), SETTINGS[key].values, key);
-    }
-});
 
 test("the list shows each setting with what it is set to, the first one selected", () => {
     const app = lists(1);
@@ -134,4 +125,14 @@ test("with no current value among those offered, nothing is selected", () => {
 
 test("Back is no value", () => {
     assert.equal(createSettingsScreen(lists(null)).pickValue("folder", ["ask"], "ask"), null);
+});
+
+test("duplicate labels fault before a setting or value list opens", () => {
+    const app = lists();
+    const screen = createSettingsScreen(app);
+    const unrecognised = { key: "folder", value: null, saved: "???", available: true };
+
+    assert.throws(() => screen.pickSetting([unrecognised, { ...unrecognised }]), { kind: "duplicateLabels", params: {} });
+    assert.throws(() => screen.pickValue("folder", ["ask", "ask"], "ask"), { kind: "duplicateLabels", params: {} });
+    assert.deepEqual(app.asked, []);
 });
