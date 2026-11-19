@@ -29,13 +29,15 @@ function isActionOptions(value) {
         typeof value.source === "string" && typeof value.ignoresInput === "boolean";
 }
 
+class ShortcutsInputFault extends Error {}
+
 function selectionOf(input) {
     if (!Array.isArray(input) || !Array.isArray(input[0])) {
         return input;
     }
 
     if (input.length !== ENVELOPE_LENGTH || !isActionOptions(input[1])) {
-        throw new Error("Shortcuts passed its input in a form this version does not recognise.");
+        throw new ShortcutsInputFault("Shortcuts passed its input in a form this version does not recognise.");
     }
 
     return input[0];

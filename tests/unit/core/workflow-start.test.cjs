@@ -13,22 +13,14 @@ const { fixture, hostFor, calls } = require("../../helpers.cjs");
 
 // A person who opens the settings, whatever the first question says.
 const toSettings = { start: () => "settings" };
-const envelope = (items) => [items, { source: "", "temporary items path": "/tmp", ignoresInput: false }];
 
 test("choosing a folder opens inside it, whatever folders are set to", () => {
     const io = fixture({}, {}, { folder: "parent" });
 
-    assert.deepEqual(execute([], hostFor(io)), []);
+    assert.deepEqual(execute([], hostFor(io)), { kind: "opened", terminal: "terminal", path: "/work" });
     assert.deepEqual(calls(io), ["load", "installed", "start", "installed", "chooseFolder", "path", "validate", "launch"]);
     assert.deepEqual(io.events.find(([name]) => name === "start"), ["start", "ready"]);
     assert.deepEqual(io.events.at(-1), ["launch", "/work", "terminal"]);
-});
-
-test("an empty selection from Shortcuts is the same as nothing", () => {
-    const io = fixture();
-
-    execute(envelope([]), hostFor(io));
-    assert.deepEqual(calls(io).slice(0, 3), ["load", "installed", "start"]);
 });
 
 test("the first question names the saved app, or none when it is not recognised", () => {
@@ -48,7 +40,7 @@ test("the first question names the saved app, or none when it is not recognised"
 test("the settings open instead of a folder, and end the run when done", () => {
     const io = fixture({}, { start: () => "settings" });
 
-    assert.deepEqual(execute([], hostFor(io)), []);
+    assert.deepEqual(execute([], hostFor(io)), { kind: "settingsClosed" });
     assert.deepEqual(calls(io).filter((name) => name !== "installed"), ["load", "pickSetting"]);
 });
 
@@ -86,7 +78,7 @@ test("choosing a folder is no answer when the settings cannot open one", () => {
     for (const [saved, isInstalled] of [[{ link: "TARGET" }, () => true], [{ terminal: "ghostty" }, () => false]]) {
         const io = fixture({}, { isInstalled }, saved);
 
-        assert.throws(() => execute([], hostFor(io)), /^Error: Invalid start choice\.$/u);
+        assert.throws(() => execute([], hostFor(io)), { kind: "invalidAnswer", params: { question: "start" } });
         assert.equal(calls(io).includes("chooseFolder"), false);
     }
 });
@@ -94,6 +86,6 @@ test("choosing a folder is no answer when the settings cannot open one", () => {
 test("an answer to the first question that is neither is refused", () => {
     const io = fixture({}, { start: () => "maybe" });
 
-    assert.throws(() => execute([], hostFor(io)), /^Error: Invalid start choice\.$/u);
+    assert.throws(() => execute([], hostFor(io)), { kind: "invalidAnswer", params: { question: "start" } });
     assert.equal(calls(io).includes("launch"), false);
 });

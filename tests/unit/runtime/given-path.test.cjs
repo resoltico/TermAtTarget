@@ -10,7 +10,7 @@ const test = require("node:test");
 const { pathOf } = require("../../../src/runtime/given-path.js");
 const { fakeFoundation, box } = require("./fake-foundation.cjs");
 
-const NOT_A_PATH = /^Error: The supplied item has no usable filesystem path\. Configure the action to receive Files\.$/u;
+const NOT_A_PATH = { kind: "unusableInput", params: {} };
 
 test("a string is the path as given", () => {
     const { bridge } = fakeFoundation();
@@ -73,7 +73,7 @@ test("a value that is no kind of item is refused before anything is asked", () =
     for (const value of [null, undefined, false, 1, []]) {
         assert.throws(
             () => pathOf(bridge, value),
-            /^Error: Shortcuts must supply a file, folder, absolute path, or local file URL\.$/u,
+            { kind: "unusableInput", params: {} },
             String(value)
         );
     }

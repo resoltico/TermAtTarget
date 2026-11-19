@@ -1,6 +1,6 @@
 "use strict";
 
-const { displayPath } = require("../core/paths.js");
+const { fault, NATIVE_OPERATIONS } = require("../core/outcomes.js");
 const { isNil, fileManager, nativeFailure } = require("./bridge.js");
 
 /*
@@ -16,17 +16,17 @@ function attributes(bridge, path) {
     const result = fileManager(bridge).attributesOfItemAtPathError(path, error);
 
     if (isNil(result)) {
-        throw nativeFailure(bridge, "Cannot inspect", path, error);
+        throw nativeFailure(bridge, NATIVE_OPERATIONS.INSPECT, path, error);
     }
 
     return result;
 }
 
-function attribute(bridge, dict, key) {
-    const value = dict.objectForKey(key);
+function fileType(bridge, dict, path) {
+    const value = dict.objectForKey(bridge.ns.NSFileType);
 
     if (isNil(value)) {
-        throw new Error("macOS omitted a required filesystem attribute.");
+        throw fault("missingFileType", { path });
     }
 
     return bridge.objc.unwrap(value);
@@ -38,11 +38,11 @@ function resourceBoolean(bridge, path, key) {
     const url = bridge.ns.NSURL.fileURLWithPath(path);
 
     if (!url.getResourceValueForKeyError(value, key, error)) {
-        throw nativeFailure(bridge, "Cannot read metadata for", path, error);
+        throw nativeFailure(bridge, NATIVE_OPERATIONS.READ_METADATA, path, error);
     }
 
     if (isNil(value)) {
-        throw new Error(`macOS omitted a required resource value for ${displayPath(path)}.`);
+        throw fault("missingResourceValue", { path });
     }
 
     return Boolean(bridge.objc.unwrap(value));
@@ -58,7 +58,7 @@ function resourceBoolean(bridge, path, key) {
  */
 function inspect(bridge, path) {
     const { ns, objc } = bridge;
-    const type = attribute(bridge, attributes(bridge, path), ns.NSFileType);
+    const type = fileType(bridge, attributes(bridge, path), path);
 
     if (type === objc.unwrap(ns.NSFileTypeSymbolicLink)) {
         return { kind: "symlink" };
@@ -86,4 +86,4 @@ function isPackage(bridge, path) {
     }
 }
 
-module.exports = { attributes, attribute, resourceBoolean, inspect, isPackage };
+module.exports = { attributes, fileType, resourceBoolean, inspect, isPackage };

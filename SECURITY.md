@@ -25,7 +25,8 @@ retried, so a slow request cannot become two.
 There is no eval, dynamic source download, network client, credential storage,
 telemetry or external runtime dependency. Path text is validated without
 trimming or splitting names. File URLs are decoded once and must be local.
-Dialog display strings escape control characters and are never used as paths.
+Questions and failure alerts escape invisible and direction-changing path
+characters. Displayed strings are never read back as paths.
 
 A selected Finder alias is classified before any target resolution. Choosing
 its own containing folder does not resolve its target. Chosen alias targets

@@ -9,7 +9,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { ask, pick, alert, chooseFolder } = require("../../../src/runtime/standard-additions.js");
-const { isCancellation } = require("../../../src/core/errors.js");
+const { isCancellation } = require("../../../src/core/outcomes.js");
 
 const ANSWERS = { other: "Open in Parent", usual: "Open Inside" };
 const answering = (answer) => ({ displayDialog: () => answer, chooseFromList: () => answer });
@@ -56,7 +56,7 @@ test("a dialog answer that is not one of the buttons offered is refused", () => 
     ];
 
     for (const answer of malformed) {
-        assert.throws(() => ask(answering(answer), "text", ANSWERS), /^Error: The dialog returned an invalid answer\.$/u, JSON.stringify(answer));
+        assert.throws(() => ask(answering(answer), "text", ANSWERS), { kind: "invalidAnswer", params: { question: "dialog" } }, JSON.stringify(answer));
     }
 });
 
@@ -79,7 +79,7 @@ test("backing out of a list is no answer, not a cancellation", () => {
 
 test("a list answer that is not exactly one item offered is refused", () => {
     for (const answer of [null, true, "a", [], ["a", "a"], ["c"], [["a"]], { 0: "a", length: 1 }]) {
-        assert.throws(() => pick(answering(answer), ["a", "b"], {}), /^Error: The settings list returned an invalid answer\.$/u,
+        assert.throws(() => pick(answering(answer), ["a", "b"], {}), { kind: "invalidAnswer", params: { question: "list" } },
             JSON.stringify(answer));
     }
 });

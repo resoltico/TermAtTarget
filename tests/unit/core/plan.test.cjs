@@ -56,7 +56,7 @@ test("asked, the answer decides, and the question says the folder was selected",
 test("an answer that is neither inside nor parent is refused", () => {
     const io = fixture({}, { chooseFolderMode: () => "bad" });
 
-    assert.throws(() => destination(selected("/work"), DEFAULTS, ...ports(io)), /^Error: Invalid folder-location choice\.$/u);
+    assert.throws(() => destination(selected("/work"), DEFAULTS, ...ports(io)), { kind: "invalidAnswer", params: { question: "folderLocation" } });
 });
 
 test("choosing a folder opens inside it, even when folders open at their parent", () => {
@@ -69,13 +69,13 @@ test("choosing a folder opens inside it, even when folders open at their parent"
 test("the chosen folder is held to the path rules", () => {
     const io = fixture({}, { chooseFolder: () => "relative" });
 
-    assert.throws(() => destination(null, DEFAULTS, ...ports(io)), /absolute POSIX path/u);
+    assert.throws(() => destination(null, DEFAULTS, ...ports(io)), { kind: "pathRelative", params: {} });
 });
 
 test("a kind that is neither file, folder, alias nor link is refused", () => {
     const io = fixture({ "/odd": { kind: "unknown" } });
 
-    assert.throws(() => destination(selected("/odd"), DEFAULTS, ...ports(io)), /^Error: The selected item's type could not be determined\.$/u);
+    assert.throws(() => destination(selected("/odd"), DEFAULTS, ...ports(io)), { kind: "unknownItemKind", params: { path: "/odd" } });
 });
 
 test("a missing item is reported as missing", () => {

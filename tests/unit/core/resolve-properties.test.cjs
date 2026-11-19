@@ -57,7 +57,7 @@ test("one link past the budget is refused, however the chain is named", () => {
     fc.assert(fc.property(names(MAX_LINKS + 2), (entries) => {
         const { items, start } = linkChain(entries);
 
-        assert.throws(() => resolveTarget(start, fixture(items)), /Too many/u);
+        assert.throws(() => resolveTarget(start, fixture(items)), { kind: "tooManyLinks" });
     }));
 });
 
@@ -73,7 +73,7 @@ test("an alias cycle of any length is refused as a cycle, before the budget", ()
             items[`/${name}`] = alias(`/${ring[(index + 1) % ring.length]}`);
         });
 
-        assert.throws(() => resolveTarget(`/${ring[0]}`, fixture(items)), /A link cycle was found/u);
+        assert.throws(() => resolveTarget(`/${ring[0]}`, fixture(items)), { kind: "linkCycle", params: { path: `/${ring[0]}` } });
     }));
 });
 

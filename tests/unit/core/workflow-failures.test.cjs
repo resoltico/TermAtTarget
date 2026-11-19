@@ -8,7 +8,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { execute } = require("../../../src/core/workflow.js");
-const { cancelled } = require("../../../src/core/errors.js");
+const { cancelled } = require("../../../src/core/outcomes.js");
 const { fixture, hostFor, calls } = require("../../helpers.cjs");
 
 function userCancelled() {
@@ -26,7 +26,7 @@ test("a cancel at any question returns quietly and launches nothing", () => {
     for (const [input, entries, stage] of stages) {
         const io = fixture(entries, { [stage]: userCancelled });
 
-        assert.deepEqual(execute(input, hostFor(io)), [], stage);
+        assert.deepEqual(execute(input, hostFor(io)), { kind: "cancelled" }, stage);
         assert.equal(calls(io).includes("launch"), false, stage);
     }
 });
@@ -34,7 +34,7 @@ test("a cancel at any question returns quietly and launches nothing", () => {
 test("a cancel in the settings returns quietly too", () => {
     const io = fixture({}, { start: () => "settings", pickSetting: userCancelled });
 
-    assert.deepEqual(execute([], hostFor(io)), []);
+    assert.deepEqual(execute([], hostFor(io)), { kind: "cancelled" });
 });
 
 test("a failure at any step is thrown as itself, and nothing after it runs", () => {

@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { validUnicode, checkPathText, absolutePath } = require("../../../src/core/paths.js");
 
-const NOT_TEXT = /^Error: A path must be nonempty Unicode text without a NUL character\.$/u;
+const NOT_TEXT = { kind: "pathNotText", params: {} };
 
 test("well-formed text of every width is valid, surrogate pairs included", () => {
     for (const value of ["", "hello", "éЖĒ", "😀", "􏿿", "𐀀", "a😀z"]) {
@@ -50,7 +50,7 @@ test("a relative path or ~ is refused rather than expanded", () => {
     for (const value of ["relative", "~/work", "./work", "work/"]) {
         assert.throws(
             () => absolutePath(value),
-            /^Error: Use an absolute POSIX path or a local file URL; relative paths and ~ are not expanded\.$/u,
+            { kind: "pathRelative", params: {} },
             value
         );
     }
@@ -60,7 +60,7 @@ test("a . or .. component is refused, and a name that only contains dots is not 
     for (const value of ["/a/./b", "/a/../b", "/.", "/..", "/a/.."]) {
         assert.throws(
             () => absolutePath(value),
-            /^Error: Direct input must not contain \. or \.\. path components\. Select the item itself\.$/u,
+            { kind: "pathDotComponent", params: {} },
             value
         );
     }

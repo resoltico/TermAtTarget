@@ -1,5 +1,6 @@
 "use strict";
 
+const { selectionOf } = require("./shortcuts-input.js");
 const { execute } = require("../core/workflow.js");
 const { createMacHost } = require("./host.js");
 const { createFoundation } = require("./foundation.js");
@@ -18,16 +19,20 @@ function run(input) {
     const host = createMacHost();
 
     try {
-        return execute(input, host);
+        const outcome = execute(selectionOf(input), host);
+
+        if (outcome.kind === "refused") {
+            throw outcome.refusal;
+        }
     } catch (error) {
         try {
             host.report(error);
         } catch {
             throw error;
         }
-
-        return [];
     }
+
+    return [];
 }
 
 /*

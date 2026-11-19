@@ -1,16 +1,17 @@
 "use strict";
 
-const { checkPathText, absolutePath, parentPath, displayPath } = require("./paths.js");
+const { refuse, fault } = require("./outcomes.js");
+const { checkPathText, absolutePath, parentPath } = require("./paths.js");
 
 // The most links one resolution may follow before it is taken for a cycle.
 const MAX_LINKS = 40;
 
 // One link followed, against the budget the whole resolution shares.
-function spendLink(budget, message) {
+function spendLink(budget, path) {
     budget.links += 1;
 
     if (budget.links > MAX_LINKS) {
-        throw new Error(message);
+        throw refuse("tooManyLinks", { path });
     }
 }
 
@@ -21,7 +22,7 @@ function spendLink(budget, message) {
  * it is followed once more.
  */
 function followLinkComponent(state, candidate, io, budget) {
-    spendLink(budget, `Too many symbolic links, or a link cycle, while resolving ${displayPath(state.rawPath)}.`);
+    spendLink(budget, state.rawPath);
 
     const target = checkPathText(io.readLink(candidate));
 
@@ -43,7 +44,7 @@ function enterComponent(state, part, io, budget) {
 
     // Any remaining component (even '.' or '..') requires a directory.
     if (state.pending.length > 0 && facts.kind !== "directory") {
-        throw new Error(`A link target traverses a non-directory: ${displayPath(candidate)}.`);
+        throw refuse("linkThroughFile", { path: candidate });
     }
 
     state.resolved.push(part);
@@ -71,7 +72,7 @@ function physicalPath(rawPath, io, budget) {
     checkPathText(rawPath);
 
     if (!rawPath.startsWith("/")) {
-        throw new Error("Internal link resolution requires an absolute path.");
+        throw fault("relativeResolutionPath", { path: rawPath });
     }
 
     const state = { rawPath, pending: rawPath.split("/"), resolved: [] };
@@ -90,14 +91,14 @@ function physicalPath(rawPath, io, budget) {
  */
 function nextHop(path, facts, walk) {
     if (facts.kind === "alias") {
-        spendLink(walk.budget, `Too many aliases while resolving ${displayPath(walk.selected)}.`);
+        spendLink(walk.budget, walk.selected);
         return absolutePath(walk.io.resolveAlias(path));
     }
 
     if (facts.kind === "symlink") {
         const target = checkPathText(walk.io.readLink(path));
 
-        spendLink(walk.budget, `Too many links while resolving ${displayPath(walk.selected)}.`);
+        spendLink(walk.budget, walk.selected);
 
         return physicalPath(target.startsWith("/") ? target : `${parentPath(path)}/${target}`, walk.io, walk.budget);
     }
@@ -107,7 +108,7 @@ function nextHop(path, facts, walk) {
 
 function visit(visited, path) {
     if (visited.has(path)) {
-        throw new Error(`A link cycle was found at ${displayPath(path)}.`);
+        throw refuse("linkCycle", { path });
     }
 
     visited.add(path);

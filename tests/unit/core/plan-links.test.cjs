@@ -53,7 +53,7 @@ test("an answer that is neither target nor link location is refused", () => {
     for (const kind of ["alias", "symlink"]) {
         const io = fixture({ "/work/link": { kind } }, { chooseLink: () => "invalid" });
 
-        assert.throws(() => destination(selected("/work/link"), DEFAULTS, io, io), /^Error: Invalid link-location choice\.$/u, kind);
+        assert.throws(() => destination(selected("/work/link"), DEFAULTS, io, io), { kind: "invalidAnswer", params: { question: "linkLocation" } }, kind);
     }
 });
 

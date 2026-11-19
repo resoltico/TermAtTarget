@@ -1,7 +1,6 @@
 "use strict";
 
-const { displayPath } = require("../core/paths.js");
-const { refusal } = require("../core/errors.js");
+const { refuse, NATIVE_OPERATIONS } = require("../core/outcomes.js");
 const { physicalPath } = require("../core/resolve.js");
 const { isNil, fileManager, nativeFailure } = require("./bridge.js");
 const { inspect } = require("./attributes.js");
@@ -32,14 +31,13 @@ function resolveAlias(bridge, path) {
 
     if (isNil(url)) {
         // The one native failure a person causes and can put right, so it says how.
-        const failure = nativeFailure(bridge, "Cannot resolve alias target for", path, error);
+        const failure = nativeFailure(bridge, NATIVE_OPERATIONS.RESOLVE_ALIAS, path, error);
 
-        throw Object.assign(refusal("The alias's original can't be found", `${failure.message}. Choose Open Where It Is ` +
-            "to open the folder the alias is in, or set Finder aliases to Open where it is in the settings."), { native: failure.native });
+        throw refuse("aliasTargetMissing", { native: failure.params });
     }
 
     if (!url.isFileURL) {
-        throw new Error("The alias target is not a local filesystem URL.");
+        throw refuse("aliasTargetNotLocal", { path });
     }
 
     return String(objc.unwrap(url.path));
@@ -50,7 +48,7 @@ function readLink(bridge, path) {
     const value = fileManager(bridge).destinationOfSymbolicLinkAtPathError(path, error);
 
     if (isNil(value)) {
-        throw nativeFailure(bridge, "Cannot read symbolic link", path, error);
+        throw nativeFailure(bridge, NATIVE_OPERATIONS.READ_LINK, path, error);
     }
 
     return String(bridge.objc.unwrap(value));
@@ -69,11 +67,11 @@ function validateDirectory(bridge, path) {
     const physical = physicalPath(path, io, { links: 0 });
 
     if (io.inspect(physical).kind !== "directory") {
-        throw new Error(`The destination is no longer a directory: ${displayPath(path)}.`);
+        throw refuse("destinationGone", { path });
     }
 
     if (!fileManager(bridge).isExecutableFileAtPath(path)) {
-        throw new Error(`The destination directory cannot be entered: ${displayPath(path)}.`);
+        throw refuse("destinationNotEnterable", { path });
     }
 }
 

@@ -36,11 +36,11 @@ test("relative and absolute links and mixed alias chains reach the same file", (
 });
 
 test("an alias target is held to the path rules", () => {
-    assert.throws(() => resolveTarget("/a", fixture({ "/a": alias("relative") })), /absolute POSIX path/u);
+    assert.throws(() => resolveTarget("/a", fixture({ "/a": alias("relative") })), { kind: "pathRelative", params: {} });
 });
 
 test("a link target is held to the text rules before it is followed", () => {
-    assert.throws(() => resolveTarget("/a", fixture({ "/a": link("") })), /nonempty Unicode text/u);
+    assert.throws(() => resolveTarget("/a", fixture({ "/a": link("") })), { kind: "pathNotText", params: {} });
 });
 
 test("a missing target is reported, not guessed at", () => {
@@ -50,12 +50,12 @@ test("a missing target is reported, not guessed at", () => {
 test("an alias that returns to itself is a cycle", () => {
     assert.throws(
         () => resolveTarget("/a", fixture({ "/a": alias("/a") })),
-        /^Error: A link cycle was found at "\/a"\.$/u
+        { kind: "linkCycle", params: { path: "/a" } }
     );
 });
 
 test("a symbolic link to itself is a cycle too", () => {
-    assert.throws(() => resolveTarget("/a", fixture({ "/a": link("a") })), /Too many/u);
+    assert.throws(() => resolveTarget("/a", fixture({ "/a": link("a") })), { kind: "tooManyLinks", params: { path: "//a" } });
 });
 
 function aliasChain(length) {
@@ -65,7 +65,7 @@ function aliasChain(length) {
 test("an alias chain past the budget is refused as too many aliases", () => {
     assert.throws(
         () => resolveTarget("/a0", fixture(aliasChain(MAX_LINKS + 1))),
-        /^Error: Too many aliases while resolving "\/a0"\.$/u
+        { kind: "tooManyLinks", params: { path: "/a0" } }
     );
 });
 
@@ -74,7 +74,7 @@ test("a link at the end of a spent budget is refused as too many links", () => {
 
     assert.throws(
         () => resolveTarget("/a0", fixture(items)),
-        /^Error: Too many links while resolving "\/a0"\.$/u
+        { kind: "tooManyLinks", params: { path: "/a0" } }
     );
 });
 

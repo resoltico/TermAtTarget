@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { decodeFileURL, absolutePath } = require("../../../src/core/paths.js");
 
-const NOT_LOCAL = /^Error: Use a local file URL without a remote host, query, or fragment\.$/u;
+const NOT_LOCAL = { kind: "pathNotLocalURL", params: {} };
 
 test("a local file URL is decoded once to its path", () => {
     assert.equal(absolutePath("file:///work/a%20b%27%0A%25"), "/work/a b'\n%");
@@ -33,14 +33,14 @@ test("a URL that is not of the file:// form is refused", () => {
 
 test("only an absolute path or a file URL is accepted as input", () => {
     // An https URL is not a file URL, so it is refused as a relative path.
-    assert.throws(() => absolutePath("https://example.com/x"), /relative paths and ~ are not expanded/u);
+    assert.throws(() => absolutePath("https://example.com/x"), { kind: "pathRelative", params: {} });
 });
 
 test("an encoded separator is refused, in either case", () => {
     for (const value of ["file:///a%2fb", "file:///a%2Fb"]) {
         assert.throws(
             () => decodeFileURL(value),
-            /^Error: A file URL must not contain an encoded path separator\.$/u,
+            { kind: "pathEncodedSeparator", params: {} },
             value
         );
     }
@@ -48,18 +48,13 @@ test("an encoded separator is refused, in either case", () => {
 
 test("invalid percent-encoding or UTF-8 is refused, keeping the decoder's reason", () => {
     for (const value of ["file:///bad%", "file:///bad%zz", "file:///bad%C0%80", "file:///bad%ED%A0%80"]) {
-        assert.throws(() => decodeFileURL(value), (error) => {
-            assert.equal(error.message, "The file URL contains invalid percent-encoding or UTF-8.");
-            assert.ok(error.cause instanceof URIError, "the decoder's own error is kept");
-
-            return true;
-        }, value);
+        assert.throws(() => decodeFileURL(value), { kind: "pathBadEncoding", params: {} }, value);
     }
 });
 
 test("what a URL decodes to is held to the same rules as a path", () => {
-    assert.throws(() => absolutePath("file:///bad%00"), /nonempty Unicode text without a NUL/u);
-    assert.throws(() => absolutePath("file:///a/%2e%2e/b"), /must not contain \. or \.\. path components/u);
+    assert.throws(() => absolutePath("file:///bad%00"), { kind: "pathNotText", params: {} });
+    assert.throws(() => absolutePath("file:///a/%2e%2e/b"), { kind: "pathDotComponent", params: {} });
 });
 
 test("only text that starts as a file URL is read as one", () => {

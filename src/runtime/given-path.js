@@ -1,5 +1,6 @@
 "use strict";
 
+const { refuse } = require("../core/outcomes.js");
 const { absolutePath } = require("../core/paths.js");
 const { isNil } = require("./bridge.js");
 
@@ -38,7 +39,7 @@ function nativeText(bridge, value) {
  */
 function nativeURLText(objc, url) {
     if (!url.isFileURL) {
-        throw new Error("Only local file URLs are accepted.");
+        throw refuse("pathNotLocalURL");
     }
 
     // Foundation may repair malformed escapes while resolving a reference.
@@ -47,7 +48,7 @@ function nativeURLText(objc, url) {
     const pathURL = url.isFileReferenceURL ? url.filePathURL : url;
 
     if (isNil(pathURL)) {
-        throw new Error("The selected item no longer exists.");
+        throw refuse("itemGone");
     }
 
     return String(objc.unwrap(pathURL.absoluteString));
@@ -99,7 +100,7 @@ function referenceResolved(bridge, text) {
     const url = bridge.ns.NSURL.URLWithString(text);
 
     if (isNil(url)) {
-        throw new Error("The selected item no longer exists.");
+        throw refuse("itemGone");
     }
 
     return nativeURLText(bridge.objc, url);
@@ -118,7 +119,7 @@ function readText(bridge, value) {
     }
 
     if (!isObjectLike(value)) {
-        throw new Error("Shortcuts must supply a file, folder, absolute path, or local file URL.");
+        throw refuse("unusableInput");
     }
 
     for (const read of READERS) {
@@ -129,7 +130,7 @@ function readText(bridge, value) {
         }
     }
 
-    throw new Error("The supplied item has no usable filesystem path. Configure the action to receive Files.");
+    throw refuse("unusableInput");
 }
 
 function pathOf(bridge, value) {

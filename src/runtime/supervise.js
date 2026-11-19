@@ -1,6 +1,5 @@
 "use strict";
 
-const { messageOf } = require("../core/errors.js");
 const { perform } = require("./bridge.js");
 
 /*
@@ -66,7 +65,7 @@ function attempt(action, failures) {
     try {
         return action();
     } catch (error) {
-        failures.push(messageOf(error));
+        failures.push(error);
         return null;
     }
 }
@@ -89,7 +88,7 @@ function supervise(bridge, files, command) {
     const error = bridge.outParameter();
 
     if (!task.launchAndReturnError(error)) {
-        throw files.nativeFailure(command.failure, command.subject, error);
+        throw files.nativeFailure(command.operation, command.subject, error);
     }
 
     try {
@@ -97,7 +96,7 @@ function supervise(bridge, files, command) {
             return { finished: true, status: Number(task.terminationStatus) };
         }
     } catch (failure) {
-        return abandon(bridge, task, messageOf(failure));
+        return abandon(bridge, task, { failure });
     }
 
     return abandon(bridge, task, null);

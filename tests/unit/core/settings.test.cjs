@@ -57,20 +57,14 @@ test("a saved value is taken as saved", () => {
 });
 
 test("a value that is not one of the setting's is refused with the setting, the value and the way out", () => {
-    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, folder: "LEVEL" }), (error) => {
-        assert.equal(error.message, "The saved folder setting, \"LEVEL\", is not one of ask, inside, parent. " +
-            "Run Term At Target with nothing selected to change its settings.");
-        assert.equal(error.summary, "The folder setting isn't recognised");
-
-        return true;
-    });
-    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, terminal: 3 }), /^Error: The saved terminal setting, 3, is not one of terminal, ghostty, iterm2, kitty\./u);
-    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, link: ["stay"] }), /^Error: The saved link setting, \["stay"\], is not one/u);
-    assert.throws(() => settingsFrom({ terminal: null, folder: null }), /^Error: The saved link setting, undefined, is not one/u);
+    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, folder: "LEVEL" }), { kind: "settingUnrecognised", params: { setting: "folder", saved: "LEVEL" } });
+    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, terminal: 3 }), { kind: "settingUnrecognised", params: { setting: "terminal", saved: 3 } });
+    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, link: ["stay"] }), { kind: "settingUnrecognised", params: { setting: "link", saved: ["stay"] } });
+    assert.throws(() => settingsFrom({ terminal: null, folder: null }), { kind: "settingUnrecognised", params: { setting: "link", saved: undefined } });
 });
 
 test("the first unrecognised setting is the one reported", () => {
-    assert.throws(() => settingsFrom({ terminal: "x", folder: "y", link: "z" }), /saved terminal setting, "x"/u);
+    assert.throws(() => settingsFrom({ terminal: "x", folder: "y", link: "z" }), { kind: "settingUnrecognised", params: { setting: "terminal", saved: "x" } });
 });
 
 test("a known setting is what a saved value stands for, or null when it stands for nothing", () => {

@@ -32,7 +32,7 @@ test("an NSURL that is not a file URL is refused", () => {
 
     assert.throws(
         () => pathOf(bridge, fileURL(bridge.ns, { isFileURL: false })),
-        /^Error: Only local file URLs are accepted\.$/u
+        { kind: "pathNotLocalURL", params: {} }
     );
 });
 
@@ -61,7 +61,7 @@ test("a reference to something that no longer exists says so", () => {
     for (const filePathURL of [{ isNil: () => true }, null]) {
         const reference = fileURL(bridge.ns, { isFileReferenceURL: true, filePathURL });
 
-        assert.throws(() => pathOf(bridge, reference), /^Error: The selected item no longer exists\.$/u);
+        assert.throws(() => pathOf(bridge, reference), { kind: "itemGone", params: {} });
     }
 });
 
@@ -102,11 +102,11 @@ test("textual references that Foundation cannot read, or that refer to nothing, 
 
     for (const answer of [null, { isNil: () => true }]) {
         bridge.ns.NSURL.URLWithString = () => answer;
-        assert.throws(() => pathOf(bridge, "file:///.file/id=1.2"), /^Error: The selected item no longer exists\.$/u);
+        assert.throws(() => pathOf(bridge, "file:///.file/id=1.2"), { kind: "itemGone", params: {} });
     }
 
     bridge.ns.NSURL.URLWithString = () => fileURL(bridge.ns, { isFileReferenceURL: true, filePathURL: null });
-    assert.throws(() => pathOf(bridge, "file:///.file/id=1.2"), /^Error: The selected item no longer exists\.$/u);
+    assert.throws(() => pathOf(bridge, "file:///.file/id=1.2"), { kind: "itemGone", params: {} });
 });
 
 test("other text, including path URLs and look-alikes, is left for the core", () => {

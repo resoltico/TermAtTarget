@@ -50,7 +50,7 @@ function dialogCheck() {
     // A question that times out must refuse the answer; the alert asks nothing,
     // so it must simply be shown and dismissed without complaint.
     for (const [question, refusal] of Object.entries(shown)) {
-        const expected = question === "alert" ? null : "The dialog returned an invalid answer.";
+        const expected = question === "alert" ? null : "invalidAnswer";
 
         if (refusal !== expected) {
             throw new Error(`The ${question} dialog was not shown as asked: ${refusal}`);

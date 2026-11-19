@@ -1,5 +1,6 @@
 "use strict";
 
+const { fault } = require("../core/outcomes.js");
 const { KEYS } = require("../core/settings.js");
 const { isNil } = require("./bridge.js");
 
@@ -27,7 +28,7 @@ function domainOf(bridge, domain) {
     const defaults = bridge.ns.NSUserDefaults.alloc.initWithSuiteName(domain);
 
     if (isNil(defaults)) {
-        throw new Error(`macOS could not open the preferences domain ${domain}.`);
+        throw fault("preferencesUnavailable", { domain });
     }
 
     return defaults;

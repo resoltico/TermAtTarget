@@ -1,11 +1,10 @@
 "use strict";
 
 const { selectedPath, parentPath } = require("./paths.js");
-const { selectionOf } = require("./invocation.js");
-const { isCancellation, refusal } = require("./errors.js");
+const { isCancellation, isRefusal, refuse, fault } = require("./outcomes.js");
 const { destination } = require("./plan.js");
 const { START, SETUP, terminalApp } = require("./vocabulary.js");
-const { KEYS, HOW_TO_CHANGE, knownSetting, settingsFrom } = require("./settings.js");
+const { KEYS, knownSetting, settingsFrom } = require("./settings.js");
 const { editSettings } = require("./settings-editor.js");
 
 /*
@@ -41,7 +40,7 @@ function wantsSettings(saved, host) {
     const offered = setup === SETUP.READY ? [START.CHOOSE, START.SETTINGS] : [START.SETTINGS];
 
     if (!offered.includes(choice)) {
-        throw new Error("Invalid start choice.");
+        throw fault("invalidAnswer", { question: "start" });
     }
 
     return choice === START.SETTINGS;
@@ -51,9 +50,7 @@ function installed(id, terminals) {
     const terminal = terminalApp(id);
 
     if (!terminals.isInstalled(id)) {
-        throw refusal(`${terminal.name} isn't installed`, `${terminal.name} is the terminal app in Term At Target's ` +
-            `settings, but macOS cannot find it. Install it, or choose another app. ${HOW_TO_CHANGE} If you've just ` +
-            "installed it, open it once from Applications, then try again.");
+        throw refuse("terminalMissing", { terminal: id });
     }
 
     return terminal;
@@ -65,12 +62,7 @@ function installed(id, terminals) {
  */
 function assertLiteral(terminal, path) {
     if (terminal.readsVariables && path.includes("$")) {
-        const way = parentPath(path).includes("$")
-            ? `Choose another terminal app for this folder. ${HOW_TO_CHANGE}`
-            : `Its parent folder has no "$", so ${terminal.name} can open that: choose Open in Parent, or choose another terminal app. ${HOW_TO_CHANGE}`;
-
-        throw refusal(`${terminal.name} can't open this folder`, `${terminal.name} reads "$" in a folder's path as the ` +
-            `start of a variable, so it would open somewhere other than ${JSON.stringify(path)}. ${way}`);
+        throw refuse("terminalReadsVariables", { terminal: terminal.id, path, parentUsable: !parentPath(path).includes("$") });
     }
 }
 
@@ -82,27 +74,35 @@ function open(selection, saved, host) {
     host.files.validateDirectory(path);
     assertLiteral(terminal, path);
     host.terminals.launch(terminal.id, path);
+    return { kind: "opened", terminal: terminal.id, path };
+}
+
+function runSelection(input, host) {
+    const selection = selectedPath(input, (value) => host.files.pathOf(value));
+    const saved = host.preferences.load();
+
+    if (selection === null && wantsSettings(saved, host)) {
+        editSettings(saved, host.settingsScreen, host.preferences, host.terminals);
+        return { kind: "settingsClosed" };
+    }
+
+    return open(selection, saved, host);
 }
 
 function execute(input, host) {
-    const selection = selectedPath(selectionOf(input), (value) => host.files.pathOf(value));
-    const saved = host.preferences.load();
-
     try {
-        if (selection === null && wantsSettings(saved, host)) {
-            editSettings(saved, host.settingsScreen, host.preferences, host.terminals);
-        } else {
-            open(selection, saved, host);
-        }
+        return runSelection(input, host);
     } catch (error) {
         if (isCancellation(error)) {
-            return [];
+            return { kind: "cancelled" };
+        }
+
+        if (isRefusal(error)) {
+            return { kind: "refused", refusal: error };
         }
 
         throw error;
     }
-
-    return [];
 }
 
 module.exports = { execute };

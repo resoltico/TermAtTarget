@@ -1,10 +1,10 @@
 "use strict";
 
-const { absolutePath, displayPath } = require("../core/paths.js");
-const { terminalApp } = require("../core/vocabulary.js");
+const { absolutePath } = require("../core/paths.js");
+const { refuse, NATIVE_OPERATIONS } = require("../core/outcomes.js");
 const { isNil } = require("./bridge.js");
 const { OPEN, TERMINAL_BUNDLES } = require("./executables.js");
-const { supervise, DEADLINE_SECONDS } = require("./supervise.js");
+const { supervise } = require("./supervise.js");
 
 /*
  * The terminal apps: whether one is installed, and opening one at a directory
@@ -33,39 +33,23 @@ function isInstalled(bridge, id) {
     return !isNil(url);
 }
 
-function pending(name, directory, ran) {
-    const cause = ran.lost === null
-        ? `open had not finished after ${DEADLINE_SECONDS} seconds`
-        : `open could not be followed (${ran.lost})`;
-    const said = [`${name} was asked to open ${displayPath(directory)}, but ${cause}; ` +
-        "the window may still appear. Nothing was retried."];
-
-    if (!ran.stopped) {
-        said.push(ran.pid === null
-            ? "open was told to stop, and could not be seen to stop."
-            : `open (process ${ran.pid}) was told to stop, and could not be seen to stop.`);
-    }
-
-    return [...said, ...ran.cleanup.map((failure) => `Stopping open also failed: ${failure}`)].join(" ");
-}
-
 function launch(bridge, files, id, path) {
-    const { name } = terminalApp(id);
     const directory = absolutePath(path);
     const ran = supervise(bridge, files, {
         executable: OPEN,
         arguments: ["-b", TERMINAL_BUNDLES[id], directory],
-        failure: `Cannot launch ${name} at`,
+        operation: NATIVE_OPERATIONS.LAUNCH,
         subject: directory
     });
 
     if (!ran.finished) {
-        throw new Error(pending(name, directory, ran));
+        throw refuse("launchUnconfirmed", {
+            terminal: id, path: directory, cause: ran.lost, stopped: ran.stopped, pid: ran.pid, cleanup: ran.cleanup
+        });
     }
 
     if (ran.status !== 0) {
-        throw new Error(`${name} could not be opened at ${displayPath(directory)} (open exit ${ran.status}). ` +
-            `Check that ${name} opens on its own.`);
+        throw refuse("launchFailed", { terminal: id, path: directory, status: ran.status });
     }
 }
 

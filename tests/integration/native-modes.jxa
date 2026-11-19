@@ -8,14 +8,14 @@ function superviseMode(bridge, files, base) {
     const supervise = __TermAtTarget.forNativeTests.supervise;
     const ran = function (script) {
         const started = Date.now();
-        const result = supervise(bridge, files, { executable: "/bin/sh", arguments: ["-c", script], failure: "Cannot run", subject: "/bin/sh" });
+        const result = supervise(bridge, files, { executable: "/bin/sh", arguments: ["-c", script], operation: "launch", subject: "/bin/sh" });
         result.seconds = (Date.now() - started) / 1000;
         return result;
     };
     let unstartable = null;
     try {
-        supervise(bridge, files, { executable: base + "/file.txt", arguments: [], failure: "Cannot run", subject: base + "/file.txt" });
-    } catch (error) { unstartable = String(error.message); }
+        supervise(bridge, files, { executable: base + "/file.txt", arguments: [], operation: "launch", subject: base + "/file.txt" });
+    } catch (error) { unstartable = error.kind; }
     return {
         quiet: ran("exit 0"),
         failing: ran("printf oops >&2; exit 3"),
@@ -45,7 +45,7 @@ function dialogsMode(files, base) {
     };
     const questions = __TermAtTarget.forNativeTests.createQuestions(timed, files)("Terminal");
     const refusal = function (ask) {
-        try { ask(); } catch (error) { return String(error.message); }
+        try { ask(); } catch (error) { return error.kind || String(error.message); }
         return null;
     };
     return {

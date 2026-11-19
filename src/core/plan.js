@@ -1,7 +1,8 @@
 "use strict";
 
-const { absolutePath, parentPath, displayPath } = require("./paths.js");
+const { absolutePath, parentPath } = require("./paths.js");
 const { physicalPath, resolveTarget } = require("./resolve.js");
+const { refuse, fault } = require("./outcomes.js");
 const { FOLDER, LINK } = require("./vocabulary.js");
 
 /*
@@ -24,7 +25,7 @@ function linkChoice(path, kind, settings, ask) {
         : settings.link;
 
     if (choice !== LINK.STAY && choice !== LINK.FOLLOW) {
-        throw new Error("Invalid link-location choice.");
+        throw fault("invalidAnswer", { question: "linkLocation" });
     }
 
     return choice;
@@ -52,13 +53,13 @@ function folderDestination(path, via, settings, ask) {
         return parentPath(path);
     }
 
-    throw new Error("Invalid folder-location choice.");
+    throw fault("invalidAnswer", { question: "folderLocation" });
 }
 
 // A path ending in "/" cannot name a file, and a Finder alias is a file.
 function assertSlashFits(selection, facts) {
     if (selection.slashed && (facts.kind === "file" || facts.kind === "alias")) {
-        throw new Error(`${displayPath(`${selection.path}/`)} ends in "/", but it names a file, not a folder.`);
+        throw refuse("slashedFile", { path: `${selection.path}/` });
     }
 }
 
@@ -76,7 +77,7 @@ function slashedTarget(selection, files) {
     const facts = files.inspect(path);
 
     if (facts.kind !== "directory") {
-        throw new Error(`${displayPath(`${selection.path}/`)} ends in "/", but it leads to a file, not a folder.`);
+        throw refuse("slashedLinkToFile", { path: `${selection.path}/` });
     }
 
     return { path, facts };
@@ -122,7 +123,7 @@ function destination(selection, settings, files, ask) {
     }
 
     if (item.facts.kind !== "file") {
-        throw new Error("The selected item's type could not be determined.");
+        throw fault("unknownItemKind", { path: item.path });
     }
 
     return parentPath(item.path);

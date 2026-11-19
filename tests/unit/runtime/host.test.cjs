@@ -64,7 +64,7 @@ test("the settings are read from the action's own preferences domain", () => {
 test("an out-parameter is made with $(), never Ref()", () => {
     // Measured on macOS: an NSError read back out of a Ref() crashes osascript.
     const seen = inWorld((host) => {
-        assert.throws(() => host.files.inspect("/nowhere"), /^Error: Cannot inspect "\/nowhere": /u);
+        assert.throws(() => host.files.inspect("/nowhere"), { kind: "native", params: { operation: "inspect", path: "/nowhere", domain: null, code: null, description: null } });
     });
 
     assert.equal(seen.attributesError, seen.outParameters[0], "the error went to a $() placeholder");
@@ -72,8 +72,8 @@ test("an out-parameter is made with $(), never Ref()", () => {
 
 test("each call makes its own out-parameter", () => {
     const seen = inWorld((host) => {
-        assert.throws(() => host.files.inspect("/a"), /Cannot inspect/u);
-        assert.throws(() => host.files.inspect("/b"), /Cannot inspect/u);
+        assert.throws(() => host.files.inspect("/a"), { kind: "native", params: { operation: "inspect", path: "/a", domain: null, code: null, description: null } });
+        assert.throws(() => host.files.inspect("/b"), { kind: "native", params: { operation: "inspect", path: "/b", domain: null, code: null, description: null } });
     });
 
     assert.equal(seen.outParameters.length, 2);
@@ -85,7 +85,7 @@ test("a launch is timed on the Mac's uptime clock, and a refused launch says so"
     const seen = inWorld((host) => {
         assert.throws(
             () => host.terminals.launch("terminal", "/work"),
-            /^Error: Cannot launch Terminal at "\/work": macOS did not provide further details\.$/u
+            { kind: "native", params: { operation: "launch", path: "/work", domain: null, code: null, description: null } }
         );
     });
 

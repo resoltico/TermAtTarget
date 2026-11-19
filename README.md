@@ -82,7 +82,8 @@ Return takes the default, on the right; Esc cancels. A name
 holding something invisible -- a line break, a direction mark, a soft hyphen,
 a space at either end -- is shown in quotes, with each such character written
 as `\u{XXXX}`; emoji and the joiners scripts like Devanagari are written with
-are shown as they are.
+are shown as they are. Failure alerts use the same escaping and show the
+full path.
 
 Packages are folders here: you may open inside them.
 

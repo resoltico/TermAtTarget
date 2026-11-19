@@ -29,28 +29,28 @@ test("the file manager is Foundation's shared one", () => {
 
 test("a native failure says what failed, where, macOS's reason, and its domain and code", () => {
     const { bridge } = fakeFoundation();
-    const error = nativeFailure(bridge, "Cannot read", "/a\nb", nativeError("No such file", "4"));
+    const error = nativeFailure(bridge, "readLink", "/a\nb", nativeError("No such file", "4"));
 
     assert.ok(error instanceof Error);
-    assert.equal(error.message, "Cannot read \"/a\\nb\": No such file (NSCocoaErrorDomain 4)");
+    assert.equal(error.kind, "native");
+    assert.deepEqual(error.params, { operation: "readLink", path: "/a\nb", domain: "NSCocoaErrorDomain", code: 4, description: "No such file" });
 });
 
 test("the domain and code are kept on the error, the code as a number", () => {
     // The bridge hands the code over as text (measured).
     const { bridge } = fakeFoundation();
-    const error = nativeFailure(bridge, "Cannot read", "/x", nativeError("gone", "260"));
+    const error = nativeFailure(bridge, "readLink", "/x", nativeError("gone", "260"));
 
-    assert.deepEqual(error.native, { operation: "Cannot read", path: "/x", domain: "NSCocoaErrorDomain", code: 260 });
+    assert.deepEqual(error.params, { operation: "readLink", path: "/x", domain: "NSCocoaErrorDomain", code: 260, description: "gone" });
 });
 
 test("without a reason from macOS, it says there was none", () => {
     const { bridge } = fakeFoundation();
 
     for (const error of [nil, null, undefined]) {
-        const failure = nativeFailure(bridge, "Cannot read", "/", error);
+        const failure = nativeFailure(bridge, "readLink", "/", error);
 
-        assert.equal(failure.message, "Cannot read \"/\": macOS did not provide further details.", String(error));
-        assert.deepEqual(failure.native, { operation: "Cannot read", path: "/", domain: null, code: null });
+        assert.deepEqual(failure.params, { operation: "readLink", path: "/", domain: null, code: null, description: null });
     }
 });
 

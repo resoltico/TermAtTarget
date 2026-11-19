@@ -50,27 +50,39 @@ test("a run hands the workflow its input and a new host", () => {
         createMacHost: () => madeHost,
         execute(...args) {
             received.push(args);
-            return ["done"];
+            return { kind: "opened" };
         }
-    }, (entry) => entry.run(["/input"]));
+    }, (entry) => entry.run([["/input"], { source: "", ignoresInput: false }]));
 
-    assert.deepEqual(answer, ["done"]);
+    assert.deepEqual(answer, []);
     assert.deepEqual(received, [[["/input"], madeHost]]);
     assert.equal(received[0][1], madeHost);
 });
 
-test("a failed run is told in the host's alert, and then ends quietly", () => {
-    const failure = new Error("refused");
+test("a refused or failed run is told in the host's alert, and then ends quietly", () => {
+    const failure = new Error("failed");
+    const refused = { kind: "refused", refusal: failure };
+
+    for (const execute of [() => refused, () => { throw failure; }]) {
+        const reported = [];
+        const answer = withStandIns({
+            createMacHost: () => ({ report: (error) => reported.push(error) }), execute
+        }, (entry) => entry.run(["/input"]));
+
+        assert.deepEqual(answer, []);
+        assert.deepEqual(reported, [failure]);
+    }
+});
+
+test("an unfamiliar envelope is reported at the Shortcuts boundary", () => {
     const reported = [];
     const answer = withStandIns({
-        createMacHost: () => ({ report: (error) => reported.push(error) }),
-        execute() {
-            throw failure;
-        }
-    }, (entry) => entry.run(["/input"]));
+        createMacHost: () => ({ report: (error) => reported.push(error.message) }),
+        execute: () => assert.fail("malformed envelope reached the core")
+    }, (entry) => entry.run([[], null]));
 
     assert.deepEqual(answer, []);
-    assert.deepEqual(reported, [failure]);
+    assert.deepEqual(reported, ["Shortcuts passed its input in a form this version does not recognise."]);
 });
 
 test("a failure the alert cannot tell is thrown as itself, for Shortcuts to show", () => {

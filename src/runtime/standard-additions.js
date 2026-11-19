@@ -1,6 +1,6 @@
 "use strict";
 
-const { cancelled } = require("../core/errors.js");
+const { cancelled, fault } = require("../core/outcomes.js");
 
 /*
  * Standard Additions, as every question uses it: an answer is one of those
@@ -43,7 +43,7 @@ function ask(app, text, answers) {
     }));
 
     if (answer === null || typeof answer !== "object" || !offered.includes(answer.buttonReturned)) {
-        throw new Error("The dialog returned an invalid answer.");
+        throw fault("invalidAnswer", { question: "dialog" });
     }
 
     return answer.buttonReturned;
@@ -62,7 +62,7 @@ function pick(app, items, options) {
     }
 
     if (!Array.isArray(answer) || answer.length !== 1 || !items.includes(answer[0])) {
-        throw new Error("The settings list returned an invalid answer.");
+        throw fault("invalidAnswer", { question: "list" });
     }
 
     return answer[0];

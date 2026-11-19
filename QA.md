@@ -145,7 +145,7 @@ Measured on macOS 27 for a file, a folder, a Finder alias, two files and an
 empty selection, through Get Selected Files in Finder and through the
 shortcut's own input: the same shape every time, each item a JXA Path, an
 alias arriving as its own path, `source` a string and `ignoresInput` a
-boolean. `src/core/invocation.js` unwraps exactly that shape, so the one-item
+boolean. `src/runtime/shortcuts-input.js` unwraps exactly that shape, so the one-item
 rule is applied to what was selected. A list nested in a list is never a
 selection osascript passes, so one that is not exactly this envelope is
 refused by name ("a form this version does not recognise") rather than read
@@ -182,9 +182,8 @@ Four facts about the bridge were measured on macOS and shape the runtime:
   call's own result.
 - **An NSError's code arrives as text.** Through `$()` the code reads as
   `"260"`, not 260, and is converted before it is kept. Each native failure
-  names its operation, the path, macOS's own description, and the domain and
-  code -- `Cannot inspect "/x": … (NSCocoaErrorDomain 260)` -- and carries
-  them on the error as well.
+  keeps the operation, full path, description, domain and code as structured
+  detail for the failure alert.
 - **Variadic C functions lose their trailing arguments.** A mode passed to
   `open()` does not arrive (a created file lands at mode 000), so nothing that
   needs one -- `fcntl()` to make a pipe non-blocking among them -- can be used.
@@ -307,8 +306,7 @@ of three seeds: nothing that only hides or moves text is shown unescaped, a
 name is shown plainly only when it holds nothing to show, no two different
 names are shown as the same text, and recommended emoji among ordinary words
 stay as they are. Each property fails against a copy of the rule with its
-part removed. What is shown is never read back as a path. Error messages keep
-the exact JSON spelling, since they are read when something is wrong.
+part removed. What is shown is never read back as a path. Failure alerts apply the same escaping to full paths.
 
 What this promises is readable presentation with every character outside a
 published sequence shown -- not that different names look different in every
@@ -321,15 +319,11 @@ A run that is refused or fails is told in Term At Target's own Standard
 Additions alert, with OK its only button, and then ends without an error:
 through `shortcuts run`, a thrown error read "Error: Error: Error: …", one
 prefix for each layer it passed through. A failure a person can put right is
-a refusal with its own heading -- "Select one item at a time", "The folder
-setting isn't recognised", "Ghostty isn't installed", "kitty can't open this
-folder", "The alias's original can't be found" -- and says what would work:
-Open Where It Is for a broken alias, Open in Parent when only the folder's own
-name holds kitty's "$", and opening a just-installed app once; anything else is headed "Term At Target couldn't finish", which stays
-true even when a request may yet reach the terminal app. The core still
-throws; only `src/runtime/entry.js` turns the failure into the alert, and if
-the alert cannot be shown, the failure is thrown as itself for Shortcuts to
-show. Cancelling is not a failure and shows nothing.
+a refusal with its own heading, such as "Select one item at a time", and says what would work.
+Faults are headed "Term At Target couldn't finish". The core returns refusals and cancellation as outcomes and
+propagates faults. `src/runtime/failure-report.js` renders the alert. If
+the alert cannot be shown, the entry point throws the original error for
+Shortcuts to show. Cancellation shows nothing.
 
 ## The saved settings
 
@@ -351,7 +345,8 @@ requires it unread.
 A value is read as found -- null where nothing is saved -- and the core decides
 whether it is one of the setting's. Anything else, a number written with
 `defaults -int` included, stops the run with the setting, the value -- text
-quoted, numbers and lists as written, a date as a date, and data as "a value
+escaped as in the questions, numbers and lists as written, a date as a date,
+and data as "a value
 that is not text" -- and how to change it, and is shown as not recognised in the settings list. A run given
 nothing can still reach the settings, which is how such a value is replaced.
 

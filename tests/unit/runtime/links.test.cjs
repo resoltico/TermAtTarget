@@ -27,20 +27,13 @@ test("an alias is resolved without UI and without mounting, both at once", () =>
 test("an alias whose original cannot be found says so, and what would work instead", () => {
     const { bridge } = fakeFoundation({ "/alias": { targetError: true } });
 
-    assert.throws(() => resolveAlias(bridge, "/alias"), (error) => {
-        assert.equal(error.summary, "The alias's original can't be found");
-        assert.equal(error.message, "Cannot resolve alias target for \"/alias\": target error (NSCocoaErrorDomain 260). " +
-            "Choose Open Where It Is to open the folder the alias is in, or set Finder aliases to Open where it is in the settings.");
-        assert.deepEqual(error.native, { operation: "Cannot resolve alias target for", path: "/alias", domain: "NSCocoaErrorDomain", code: 260 });
-
-        return true;
-    });
+    assert.throws(() => resolveAlias(bridge, "/alias"), { kind: "aliasTargetMissing", params: { native: { operation: "resolveAlias", path: "/alias", domain: "NSCocoaErrorDomain", code: 260, description: "target error" } } });
 });
 
 test("an alias to something that is not a local file is refused", () => {
     const { bridge } = fakeFoundation({ "/alias": { remote: true, target: "/x" } });
 
-    assert.throws(() => resolveAlias(bridge, "/alias"), /^Error: The alias target is not a local filesystem URL\.$/u);
+    assert.throws(() => resolveAlias(bridge, "/alias"), { kind: "aliasTargetNotLocal", params: { path: "/alias" } });
 });
 
 test("a link's target is returned as spelled, relative or not", () => {
@@ -53,5 +46,5 @@ test("a link's target is returned as spelled, relative or not", () => {
 test("a link that cannot be read says why", () => {
     const { bridge } = fakeFoundation({ "/symlink": { linkError: true } });
 
-    assert.throws(() => readLink(bridge, "/symlink"), /^Error: Cannot read symbolic link "\/symlink": link error \(NSCocoaErrorDomain 260\)$/u);
+    assert.throws(() => readLink(bridge, "/symlink"), { kind: "native", params: { operation: "readLink", path: "/symlink", domain: "NSCocoaErrorDomain", code: 260, description: "link error" } });
 });

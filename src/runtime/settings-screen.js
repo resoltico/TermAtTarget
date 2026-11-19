@@ -2,6 +2,7 @@
 
 const { terminalApp } = require("../core/vocabulary.js");
 const { presentName } = require("../core/present.js");
+const { SOURCE_LOCALE } = require("../core/messages.js");
 const { describeSaved } = require("../core/settings.js");
 const { pick } = require("./standard-additions.js");
 
@@ -36,7 +37,7 @@ function valueLabel(key, value) {
 
 // A saved value that is not recognised, shown as text when it is text.
 function unrecognised(saved) {
-    return typeof saved === "string" ? presentName(saved) : describeSaved(saved);
+    return typeof saved === "string" ? presentName(saved) : describeSaved(saved, SOURCE_LOCALE);
 }
 
 function rowLabel(row) {

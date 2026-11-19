@@ -51,9 +51,9 @@ test("an absolute link partway through restarts the walk from root", () => {
 test("a relative path is refused, since the walk has nowhere to start", () => {
     assert.throws(
         () => physicalPath("relative", fixture(), fresh()),
-        /^Error: Internal link resolution requires an absolute path\.$/u
+        { kind: "relativeResolutionPath", params: { path: "relative" } }
     );
-    assert.throws(() => physicalPath("", fixture(), fresh()), /nonempty Unicode text/u);
+    assert.throws(() => physicalPath("", fixture(), fresh()), { kind: "pathNotText", params: {} });
 });
 
 test("walking on through a file is refused, even to '..' or '.'", () => {
@@ -62,7 +62,7 @@ test("walking on through a file is refused, even to '..' or '.'", () => {
     for (const path of ["/work/goal/..", "/work/goal/", "/work/goal/.", "/work/goal/x"]) {
         assert.throws(
             () => physicalPath(path, io, fresh()),
-            /^Error: A link target traverses a non-directory: "\/work\/goal"\.$/u,
+            { kind: "linkThroughFile", params: { path: "/work/goal" } },
             path
         );
     }
@@ -89,13 +89,13 @@ test("a link met with the budget spent is refused before it is read", () => {
 
     assert.throws(
         () => physicalPath("/a", io, { links: 40 }),
-        /^Error: Too many symbolic links, or a link cycle, while resolving "\/a"\.$/u
+        { kind: "tooManyLinks", params: { path: "/a" } }
     );
 });
 
 test("a link cycle partway through runs into the budget", () => {
     assert.throws(
         () => physicalPath("/a", fixture({ "/a": link("/a") }), fresh()),
-        /Too many symbolic links, or a link cycle/u
+        { kind: "tooManyLinks", params: { path: "/a" } }
     );
 });

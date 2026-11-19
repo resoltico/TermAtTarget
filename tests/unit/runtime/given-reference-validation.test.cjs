@@ -6,13 +6,13 @@ const { pathOf } = require("../../../src/runtime/given-path.js");
 const { fakeFoundation, box } = require("./fake-foundation.cjs");
 
 const INVALID = [
-    ["/%ZZ", /invalid percent-encoding/u],
-    ["/%2f", /encoded path separator/u],
-    ["/%2F", /encoded path separator/u],
-    ["/%FF", /invalid percent-encoding/u],
-    ["/..", /Direct input/u],
-    ["?query", /without a remote host, query, or fragment/u],
-    ["#fragment", /without a remote host, query, or fragment/u]
+    ["/%ZZ", { kind: "pathBadEncoding", params: {} }],
+    ["/%2f", { kind: "pathEncodedSeparator", params: {} }],
+    ["/%2F", { kind: "pathEncodedSeparator", params: {} }],
+    ["/%FF", { kind: "pathBadEncoding", params: {} }],
+    ["/..", { kind: "pathDotComponent", params: {} }],
+    ["?query", { kind: "pathNotLocalURL", params: {} }],
+    ["#fragment", { kind: "pathNotLocalURL", params: {} }]
 ];
 
 test("text references are validated before Foundation can rewrite them", () => {

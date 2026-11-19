@@ -60,7 +60,7 @@ function assertReportedRunning(ran, execFileSync) {
 }
 
 function assertRefused(result) {
-    if (!/^Cannot run "/u.test(String(result.unstartable))) {
+    if (result.unstartable !== "native") {
         throw new Error(`Supervisor: a file that cannot run was not refused: ${result.unstartable}`);
     }
 }

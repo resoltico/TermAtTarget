@@ -8,7 +8,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { selectionOf } = require("../../../src/core/invocation.js");
+const { selectionOf } = require("../../../src/runtime/shortcuts-input.js");
 
 // JXA Path objects: String() is the path, and nothing else is readable.
 const path = (text) => ({ toString: () => text });

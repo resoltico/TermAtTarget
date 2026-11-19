@@ -1,5 +1,6 @@
 "use strict";
 
+const { refuse, fault } = require("./outcomes.js");
 const { SETTINGS, KEYS, knownSetting } = require("./settings.js");
 
 /*
@@ -31,20 +32,16 @@ function valuesFor(key, terminals) {
     const installed = SETTINGS.terminal.values.filter((id) => terminals.isInstalled(id));
 
     if (installed.length === 0) {
-        throw new Error("None of the terminal apps Term At Target can open is installed.");
+        throw refuse("noTerminalInstalled");
     }
 
     return installed;
 }
 
-function invalidAnswer() {
-    return new Error("The settings list returned an invalid answer.");
-}
-
 // One setting changed and saved, or left as it was when the person backs out.
 function change(key, current, ports) {
     if (!KEYS.includes(key)) {
-        throw invalidAnswer();
+        throw fault("invalidAnswer", { question: "setting" });
     }
 
     const values = valuesFor(key, ports.terminals);
@@ -55,7 +52,7 @@ function change(key, current, ports) {
     }
 
     if (!values.includes(value)) {
-        throw invalidAnswer();
+        throw fault("invalidAnswer", { question: "settingValue" });
     }
 
     ports.preferences.save(key, value);

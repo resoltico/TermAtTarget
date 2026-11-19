@@ -91,7 +91,7 @@ test("the loaded artifact makes the same decisions the source does", async () =>
         });
 
         // An array from the artifact's own realm, so compared by what it holds.
-        assert.equal(context[ARTIFACT].execute(["/work/a"], hostFor(io)).length, 0);
+        assert.equal(context[ARTIFACT].execute(["/work/a"], hostFor(io)).kind, "opened");
         assert.deepEqual(io.events.filter(([name]) => name === "launch"), [["launch", expected, "ghostty"]], folder);
     }
 });
@@ -100,10 +100,10 @@ test("the loaded artifact refuses what the source refuses, before touching anyth
     const context = await loaded();
     const io = fixture();
 
-    assert.throws(
-        () => context[ARTIFACT].execute(["/a", "/b"], hostFor(io)),
-        /one selected item at a time/u
-    );
+    const outcome = context[ARTIFACT].execute(["/a", "/b"], hostFor(io));
+
+    assert.equal(outcome.kind, "refused");
+    assert.equal(outcome.refusal.kind, "multipleSelection");
     assert.deepEqual(calls(io), []);
 });
 

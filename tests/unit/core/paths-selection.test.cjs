@@ -1,14 +1,12 @@
 "use strict";
 
 /*
- * What was selected, and the two paths derived from a path: its parent, and
- * the form it is shown in. Both are kept apart from the path itself, so a
- * name is never rewritten on its way to the filesystem.
+ * What was selected and how a path resolves to its parent.
  */
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { selectedPath, parentPath, displayPath } = require("../../../src/core/paths.js");
+const { selectedPath, parentPath } = require("../../../src/core/paths.js");
 
 function refuse() {
     throw new Error("must not be coerced");
@@ -40,12 +38,12 @@ test("the root's slash is not a trailing slash", () => {
 test("more than one item is refused before any is read", () => {
     assert.throws(
         () => selectedPath(["/one", "/two"], refuse),
-        /^Error: Term At Target opens one selected item at a time\. Select one file or folder and run it again\.$/u
+        { kind: "multipleSelection", params: {} }
     );
 });
 
 test("the item is held to the path rules", () => {
-    assert.throws(() => selectedPath(["bad"], String), /absolute POSIX path/u);
+    assert.throws(() => selectedPath(["bad"], String), { kind: "pathRelative", params: {} });
 });
 
 test("a parent is every component but the last, and the root is its own", () => {
@@ -53,9 +51,4 @@ test("a parent is every component but the last, and the root is its own", () => 
     assert.equal(parentPath("/work"), "/");
     assert.equal(parentPath("/work/a/"), "/work");
     assert.equal(parentPath("//work//a//b"), "/work/a");
-});
-
-test("a displayed path is quoted and escaped, so every character is visible", () => {
-    assert.equal(displayPath("/a\n'b"), "\"/a\\n'b\"");
-    assert.equal(displayPath("/"), "\"/\"");
 });

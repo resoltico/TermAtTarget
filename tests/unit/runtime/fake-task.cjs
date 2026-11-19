@@ -1,5 +1,7 @@
 "use strict";
 
+const { fault } = require("../../../src/core/outcomes.js");
+
 /*
  * NSTask, NSThread and kill() as the supervisor uses them, on a fake clock.
  *
@@ -81,7 +83,7 @@ function fakeTask(given = {}) {
     const state = { clock: { now: 0 }, endsAt: Infinity };
     const task = scriptedTask(options, state, events);
     const objc = { wrap: (value) => value, import: (name) => events.push(["import", name]) };
-    const files = { nativeFailure: (operation, path, error) => new Error(`${operation}:${path}:${error.detail}`) };
+    const files = { nativeFailure: (operation, path, error) => fault("native", { operation, path, description: error.detail, domain: "TestDomain", code: 1 }) };
     // Reading the clock at `exitsAt` or later is when that exit happens.
     const now = () => {
         failIfDue(options, state, "clock");

@@ -95,6 +95,6 @@ test("only the domain's own values are read, never the global domain's", () => {
 test("a domain macOS will not open for writing is said, and nothing is written", () => {
     const { bridge, calls } = defaultsWorld({}, ["bad"]);
 
-    assert.throws(() => createPreferences(bridge, "bad").save("link", "stay"), /^Error: macOS could not open the preferences domain bad\.$/u);
+    assert.throws(() => createPreferences(bridge, "bad").save("link", "stay"), { kind: "preferencesUnavailable", params: { domain: "bad" } });
     assert.equal(calls.some(([name]) => name === "set"), false);
 });

@@ -1,6 +1,6 @@
 "use strict";
 
-const { refusal } = require("./errors.js");
+const { refuse } = require("./outcomes.js");
 
 /*
  * A path is text the filesystem can hold, and an unpaired UTF-16 surrogate is
@@ -28,7 +28,7 @@ function validUnicode(text) {
 
 function checkPathText(text) {
     if (typeof text !== "string" || text.length === 0 || text.includes("\0") || !validUnicode(text)) {
-        throw new Error("A path must be nonempty Unicode text without a NUL character.");
+        throw refuse("pathNotText");
     }
     return text;
 }
@@ -36,17 +36,17 @@ function checkPathText(text) {
 function decodeFileURL(text) {
     const match = /^file:\/\/(?<host>[^/]*)(?<path>\/[^?#]*)$/iu.exec(text);
     if (!match || (match.groups.host !== "" && match.groups.host.toLowerCase() !== "localhost")) {
-        throw new Error("Use a local file URL without a remote host, query, or fragment.");
+        throw refuse("pathNotLocalURL");
     }
     // Encoded '/' is not a filename character on POSIX. Reject it rather than
     // turning an encoded filename component into a different directory tree.
     if (/%2f/iu.test(match.groups.path)) {
-        throw new Error("A file URL must not contain an encoded path separator.");
+        throw refuse("pathEncodedSeparator");
     }
     try {
         return decodeURIComponent(match.groups.path);
-    } catch (error) {
-        throw new Error("The file URL contains invalid percent-encoding or UTF-8.", { cause: error });
+    } catch {
+        throw refuse("pathBadEncoding");
     }
 }
 
@@ -60,11 +60,11 @@ function pathText(text) {
 function absolutePath(given) {
     const text = pathText(given);
     if (!text.startsWith("/")) {
-        throw new Error("Use an absolute POSIX path or a local file URL; relative paths and ~ are not expanded.");
+        throw refuse("pathRelative");
     }
     const components = text.split("/").filter(component => component !== "");
     if (components.some(component => component === "." || component === "..")) {
-        throw new Error("Direct input must not contain . or .. path components. Select the item itself.");
+        throw refuse("pathDotComponent");
     }
     return `/${components.join("/")}`;
 }
@@ -73,10 +73,6 @@ function parentPath(path) {
     const normalized = absolutePath(path);
     const lastSlash = normalized.lastIndexOf("/");
     return lastSlash <= 0 ? "/" : normalized.slice(0, lastSlash);
-}
-
-function displayPath(path) {
-    return JSON.stringify(path);
 }
 
 /*
@@ -94,8 +90,7 @@ function selectedPath(input, pathOf) {
         return null;
     }
     if (items.length !== 1) {
-        throw refusal("Select one item at a time",
-            "Term At Target opens one selected item at a time. Select one file or folder and run it again.");
+        throw refuse("multipleSelection");
     }
     const text = pathText(pathOf(items[0]));
     const path = absolutePath(text);
@@ -104,5 +99,5 @@ function selectedPath(input, pathOf) {
 
 module.exports = {
     validUnicode, checkPathText, decodeFileURL, absolutePath,
-    parentPath, displayPath, selectedPath
+    parentPath, selectedPath
 };

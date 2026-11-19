@@ -1,7 +1,8 @@
 "use strict";
 
 const { FOLDER, LINK, TERMINALS } = require("./vocabulary.js");
-const { refusal } = require("./errors.js");
+const { refuse } = require("./outcomes.js");
+const { render } = require("./messages.js");
 
 /*
  * The settings: each one's values, and the value it has until one is saved.
@@ -20,9 +21,6 @@ const SETTINGS = Object.freeze({
 
 const KEYS = Object.freeze(Object.keys(SETTINGS));
 
-// How a person reaches the settings, said wherever a setting needs changing.
-const HOW_TO_CHANGE = "Run Term At Target with nothing selected to change its settings.";
-
 // What a saved value stands for, or null when it is not one of the setting's.
 function knownSetting(key, saved) {
     if (saved === null) {
@@ -37,20 +35,15 @@ function knownSetting(key, saved) {
  * as written, a date as a date, and anything JSON cannot show -- data, say --
  * by what it is rather than as "{}".
  */
-function describeSaved(saved) {
+function describeSaved(saved, locale) {
     if (saved instanceof Date) {
-        return `a date, ${saved.toISOString()}`;
+        return render(locale, "saved.date", { value: saved.toISOString() });
     }
 
     const plain = saved === null || ["undefined", "string", "number", "boolean"].includes(typeof saved) || Array.isArray(saved) ||
         Object.getPrototypeOf(saved) === Object.prototype;
 
-    return plain ? String(JSON.stringify(saved)) : "a value that is not text";
-}
-
-function unrecognised(key, saved) {
-    return refusal(`The ${key} setting isn't recognised`, `The saved ${key} setting, ${describeSaved(saved)}, ` +
-        `is not one of ${SETTINGS[key].values.join(", ")}. ${HOW_TO_CHANGE}`);
+    return plain ? String(JSON.stringify(saved)) : render(locale, "saved.opaque");
 }
 
 // Every setting, from what was saved, or the first one that is not recognised.
@@ -59,11 +52,11 @@ function settingsFrom(saved) {
         const value = knownSetting(key, saved[key]);
 
         if (value === null) {
-            throw unrecognised(key, saved[key]);
+            throw refuse("settingUnrecognised", { setting: key, saved: saved[key] });
         }
 
         return [key, value];
     })));
 }
 
-module.exports = { SETTINGS, KEYS, HOW_TO_CHANGE, knownSetting, settingsFrom, describeSaved };
+module.exports = { SETTINGS, KEYS, knownSetting, settingsFrom, describeSaved };

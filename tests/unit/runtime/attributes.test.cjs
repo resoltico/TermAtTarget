@@ -7,7 +7,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { inspect, isPackage, attributes, attribute, resourceBoolean } = require("../../../src/runtime/attributes.js");
+const { inspect, isPackage, attributes, fileType, resourceBoolean } = require("../../../src/runtime/attributes.js");
 const { fakeFoundation, box } = require("./fake-foundation.cjs");
 
 test("files, folders, aliases, links and special files are told apart", () => {
@@ -61,7 +61,7 @@ test("an alias question macOS cannot answer is an error, never a guess", () => {
     // Unlike the package question, the answer changes the destination.
     const { bridge } = fakeFoundation({ "/file": { type: "regular", resourceError: true } });
 
-    assert.throws(() => inspect(bridge, "/file"), /Cannot read metadata for "\/file"/u);
+    assert.throws(() => inspect(bridge, "/file"), { kind: "native", params: { operation: "readMetadata", path: "/file", domain: "NSCocoaErrorDomain", code: 260, description: "metadata error" } });
 });
 
 test("a special file is not asked anything more", () => {
@@ -74,28 +74,28 @@ test("a special file is not asked anything more", () => {
 test("an item that cannot be inspected says so, with macOS's reason", () => {
     const { bridge, made } = fakeFoundation();
 
-    assert.throws(() => attributes(bridge, "/missing"), /^Error: Cannot inspect "\/missing": missing \(NSCocoaErrorDomain 260\)$/u);
+    assert.throws(() => attributes(bridge, "/missing"), { kind: "native", params: { operation: "inspect", path: "/missing", domain: "NSCocoaErrorDomain", code: 260, description: "missing" } });
     assert.equal(made.length, 1, "one out-parameter, for the error");
 });
 
 test("an omitted attribute is an error, not a default", () => {
     const { bridge } = fakeFoundation({ "/file": { attributeMissing: true } });
 
-    assert.throws(() => inspect(bridge, "/file"), /^Error: macOS omitted a required filesystem attribute\.$/u);
+    assert.throws(() => inspect(bridge, "/file"), { kind: "missingFileType", params: { path: "/file" } });
 });
 
 test("an attribute is unwrapped from the dictionary", () => {
     const { bridge } = fakeFoundation();
     const dict = { objectForKey: (key) => box(`value of ${key}`) };
 
-    assert.equal(attribute(bridge, dict, "k"), "value of k");
+    assert.equal(fileType(bridge, dict, "/item"), `value of ${bridge.ns.NSFileType}`);
 });
 
 test("metadata that cannot be read is an error, not a 'no'", () => {
     // An alias check that failed must not become "not an alias".
     const { bridge } = fakeFoundation({ "/file": { type: "regular", resourceError: true } });
 
-    assert.throws(() => inspect(bridge, "/file"), /^Error: Cannot read metadata for "\/file": metadata error \(NSCocoaErrorDomain 260\)$/u);
+    assert.throws(() => inspect(bridge, "/file"), { kind: "native", params: { operation: "readMetadata", path: "/file", domain: "NSCocoaErrorDomain", code: 260, description: "metadata error" } });
 });
 
 test("an omitted resource value is an error, not a 'no'", () => {
@@ -103,7 +103,7 @@ test("an omitted resource value is an error, not a 'no'", () => {
 
     assert.throws(
         () => inspect(bridge, "/file"),
-        /^Error: macOS omitted a required resource value for "\/file"\.$/u
+        { kind: "missingResourceValue", params: { path: "/file" } }
     );
 });
 

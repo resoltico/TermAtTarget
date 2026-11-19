@@ -8,16 +8,14 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const { assertRefused } = require("../../outcome-checks.cjs");
 const { execute } = require("../../../src/core/workflow.js");
 const { fixture, hostFor, calls } = require("../../helpers.cjs");
-
-// The shape Shortcuts actually hands run(): the selection, then its options.
-const envelope = (items) => [items, { source: "", "temporary items path": "/tmp", ignoresInput: false }];
 
 test("a run reads the settings, decides, validates, and launches once", () => {
     const io = fixture();
 
-    assert.deepEqual(execute(["/work"], hostFor(io)), []);
+    assert.deepEqual(execute(["/work"], hostFor(io)), { kind: "opened", terminal: "terminal", path: "/work" });
     assert.deepEqual(calls(io), ["path", "load", "installed", "inspect", "chooseFolderMode", "validate", "launch"]);
 });
 
@@ -54,33 +52,21 @@ test("saved settings decide without asking", () => {
 test("a saved setting that is not recognised stops the run before anything is asked", () => {
     const io = fixture({}, {}, { folder: "LEVEL" });
 
-    assert.throws(() => execute(["/work"], hostFor(io)), /^Error: The saved folder setting, "LEVEL", is not one of/u);
+    assertRefused(execute(["/work"], hostFor(io)), "settingUnrecognised", { setting: "folder", saved: "LEVEL" });
     assert.deepEqual(calls(io), ["path", "load"]);
 });
 
 test("a terminal app that is not installed stops the run before anything is asked", () => {
     const io = fixture({}, { isInstalled: () => false }, { terminal: "ghostty" });
 
-    assert.throws(() => execute(["/work"], hostFor(io)), (error) => {
-        assert.equal(error.message, "Ghostty is the terminal app in Term At Target's settings, but macOS cannot find it. " +
-            "Install it, or choose another app. Run Term At Target with nothing selected to change its settings. " +
-            "If you've just installed it, open it once from Applications, then try again.");
-        assert.equal(error.summary, "Ghostty isn't installed");
-
-        return true;
-    });
+    assertRefused(execute(["/work"], hostFor(io)), "terminalMissing", { terminal: "ghostty" });
     assert.deepEqual(calls(io), ["path", "load"]);
 });
 
 test("more than one item is refused before anything is read or asked", () => {
     const io = fixture();
 
-    assert.throws(() => execute(["/a", "/b"], hostFor(io)), (error) => {
-        assert.match(error.message, /one selected item at a time/u);
-        assert.equal(error.summary, "Select one item at a time");
-
-        return true;
-    });
+    assertRefused(execute(["/a", "/b"], hostFor(io)), "multipleSelection", {});
     assert.equal(io.events.length, 0);
 });
 
@@ -95,20 +81,6 @@ test("the selection is read through the host, one item at a time", () => {
 
     execute([{ path: "/work" }], hostFor(io));
     assert.deepEqual(seen, [{ path: "/work" }]);
-});
-
-test("a single item from Shortcuts opens, whatever it is wrapped in", () => {
-    const io = fixture({ "/work/file.txt": { kind: "file" } });
-
-    assert.deepEqual(execute(envelope(["/work/file.txt"]), hostFor(io)), []);
-    assert.deepEqual(io.events.filter(([name]) => name === "launch"), [["launch", "/work", "terminal"]]);
-});
-
-test("two items from Shortcuts are refused as two, not as a list and its options", () => {
-    const io = fixture();
-
-    assert.throws(() => execute(envelope(["/a", "/b"]), hostFor(io)), /one selected item at a time/u);
-    assert.equal(io.events.length, 0);
 });
 
 test("runs are independent: each makes its own request", () => {

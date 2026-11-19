@@ -34,6 +34,6 @@ test("anything else -- data, a native object -- is said to be not text, never {}
 });
 
 test("the refusal uses the same description", () => {
-    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, folder: new Date("2026-01-01T00:00:00Z") }),
-        /^Error: The saved folder setting, a date, 2026-01-01T00:00:00\.000Z, is not one of/u);
+    const saved = new Date("2026-01-01T00:00:00Z");
+    assert.throws(() => settingsFrom({ ...NOTHING_SAVED, folder: saved }), { kind: "settingUnrecognised", params: { setting: "folder", saved } });
 });

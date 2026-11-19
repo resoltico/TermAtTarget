@@ -12,7 +12,7 @@ const test = require("node:test");
 const load = () => import("../../../tools/module-graph.mjs");
 
 // The modules found under src/, as the bundler hands them over.
-const MODULES = ["src/core/paths.js", "src/core/plan.js", "src/core/errors.js", "src/runtime/bridge.js", "src/runtime/links.js",
+const MODULES = ["src/core/paths.js", "src/core/plan.js", "src/core/outcomes.js", "src/runtime/bridge.js", "src/runtime/links.js",
     "src/runtime/host.js", "src/runtime/entry.js"];
 
 test("a local require resolves to the listed module it names, however it is quoted", async () => {
@@ -39,7 +39,7 @@ test("nothing is embedded: a specifier that is not a relative path is refused, e
 test("a module that requires nothing has no dependencies", async () => {
     const { dependencies } = await load();
 
-    assert.deepEqual(dependencies("\"use strict\";\n", "src/core/errors.js", MODULES), {});
+    assert.deepEqual(dependencies("\"use strict\";\n", "src/core/outcomes.js", MODULES), {});
 });
 
 test("a require that is not a literal string is refused", async () => {

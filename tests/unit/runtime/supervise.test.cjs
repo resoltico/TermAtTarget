@@ -10,7 +10,7 @@ const test = require("node:test");
 const { supervise, DEADLINE_SECONDS, STOP_GRACE_SECONDS } = require("../../../src/runtime/supervise.js");
 const { fakeTask, eventsNamed } = require("./fake-task.cjs");
 
-const COMMAND = { executable: "/usr/bin/tool", arguments: ["a b", "$x"], failure: "Cannot run", subject: "/where" };
+const COMMAND = { executable: "/usr/bin/tool", arguments: ["a b", "$x"], operation: "test", subject: "/where" };
 
 test("the command runs as given, and reads and writes nothing but the null device", () => {
     const { task, bridge, files } = fakeTask();
@@ -81,6 +81,6 @@ test("the clock starts before launch, so launching counts against the deadline",
 test("a process that could not start is reported with macOS's reason, and nothing else is done", () => {
     const { events, bridge, files } = fakeTask({ start: false });
 
-    assert.throws(() => supervise(bridge, files, COMMAND), /^Error: Cannot run:\/where:native-error$/u);
+    assert.throws(() => supervise(bridge, files, COMMAND), { kind: "native", params: { operation: "test", path: "/where", domain: "TestDomain", code: 1, description: "native-error" } });
     assert.deepEqual(events, ["launch"]);
 });

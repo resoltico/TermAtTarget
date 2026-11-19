@@ -72,12 +72,6 @@ test("the parent is every component but the last, and the root's parent is root"
     }));
 });
 
-test("a displayed path reads back as the path it displays", () => {
-    fc.assert(fc.property(COMPONENTS, (components) => {
-        assert.equal(JSON.parse(paths.displayPath(pathOf(components))), pathOf(components));
-    }));
-});
-
 test("a . or .. anywhere is refused, rather than resolved lexically", () => {
     // Resolving it lexically would open a different folder from the one a
     // symbolic link in the path would reach. Select the item itself instead.
@@ -85,7 +79,7 @@ test("a . or .. anywhere is refused, rather than resolved lexically", () => {
         .map(([before, dots, after]) => pathOf([...before, dots, ...after]));
 
     fc.assert(fc.property(WITH_DOTS, (path) => {
-        assert.throws(() => paths.absolutePath(path), /must not contain \. or \.\. path components/u);
+        assert.throws(() => paths.absolutePath(path), { kind: "pathDotComponent", params: {} });
     }));
 });
 
@@ -95,7 +89,7 @@ test("an encoded separator in a file URL is refused, not decoded into a new fold
             `file:///${components.map(encodeURIComponent).join("/")}${slash}${encodeURIComponent(last)}`);
 
     fc.assert(fc.property(ENCODED_SLASH, (url) => {
-        assert.throws(() => paths.absolutePath(url), /encoded path separator/u);
+        assert.throws(() => paths.absolutePath(url), { kind: "pathEncodedSeparator", params: {} });
     }));
 });
 
@@ -104,7 +98,7 @@ test("a URL with any other host is refused", () => {
 
     fc.assert(fc.property(REMOTE, COMPONENTS, (host, components) => {
         assert.throws(() => paths.absolutePath(`file://${host}/${components.join("/")}`),
-            /without a remote host/u);
+            { kind: "pathNotLocalURL", params: {} });
     }));
 });
 
@@ -113,6 +107,6 @@ test("a lone surrogate anywhere is refused, since it is not text", () => {
         .map(([components, unit]) => `${pathOf(components)}${String.fromCharCode(unit)}`);
 
     fc.assert(fc.property(LONE, (path) => {
-        assert.throws(() => paths.absolutePath(path), /nonempty Unicode text/u);
+        assert.throws(() => paths.absolutePath(path), { kind: "pathNotText", params: {} });
     }));
 });

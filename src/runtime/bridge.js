@@ -1,6 +1,6 @@
 "use strict";
 
-const { displayPath } = require("../core/paths.js");
+const { fault } = require("../core/outcomes.js");
 
 /*
  * What every native adapter is handed: `ns`, the Objective-C namespace JXA
@@ -29,23 +29,19 @@ function fileManager(bridge) {
 }
 
 /*
- * An NSError said in words, as the end of a message about what failed, with
- * its domain and code kept: in the message, where a report quotes them, and
- * on the Error for whatever handles it. The code arrives from the bridge as
- * text (measured) and is read as a number.
+ * An NSError's code arrives from the bridge as text (measured). Keep it as
+ * a number and retain the description for the failure alert.
  */
 function nativeFailure(bridge, operation, path, error) {
-    const described = Boolean(error) && !isNil(error);
-    const failure = new Error(described
-        ? `${operation} ${displayPath(path)}: ${String(bridge.objc.unwrap(error.localizedDescription))} ` +
-            `(${String(bridge.objc.unwrap(error.domain))} ${Number(error.code)})`
-        : `${operation} ${displayPath(path)}: macOS did not provide further details.`);
+    const details = error && !isNil(error)
+        ? {
+            domain: String(bridge.objc.unwrap(error.domain)),
+            code: Number(error.code),
+            description: String(bridge.objc.unwrap(error.localizedDescription))
+        }
+        : { domain: null, code: null, description: null };
 
-    failure.native = described
-        ? { operation, path, domain: String(bridge.objc.unwrap(error.domain)), code: Number(error.code) }
-        : { operation, path, domain: null, code: null };
-
-    return failure;
+    return fault("native", { operation, path, ...details });
 }
 
 /*

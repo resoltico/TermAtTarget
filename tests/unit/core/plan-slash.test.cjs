@@ -24,7 +24,7 @@ test("a path that ended in / cannot name a file or a Finder alias", () => {
 
         assert.throws(
             () => destination(selected("/work/item", true), DEFAULTS, io, io),
-            /^Error: "\/work\/item\/" ends in "\/", but it names a file, not a folder\.$/u,
+            { kind: "slashedFile", params: { path: "/work/item/" } },
             kind
         );
         assert.deepEqual(calls(io), ["inspect"], `${kind}: nothing asked, nothing followed`);
@@ -40,7 +40,7 @@ test("a path that ended in / may name a folder, or a link that leads to one", ()
     assert.equal(destination(selected("/work/link", true), folderAction("inside"), io, io), "/work");
 });
 
-const LEADS_TO_FILE = /^Error: "\/folder\/linkfile\/" ends in "\/", but it leads to a file, not a folder\.$/u;
+const LEADS_TO_FILE = { kind: "slashedLinkToFile", params: { path: "/folder/linkfile/" } };
 
 test("a slashed link that leads to a file is refused, whichever way it would open", () => {
     // The slash is a statement about where the link leads, as it is to the
@@ -97,7 +97,7 @@ test("a slashed link that leads to a Finder alias is refused, as the alias itsel
 
     assert.throws(
         () => destination(selected("/w/link", true), folderAction("inside"), io, io),
-        /^Error: "\/w\/link\/" ends in "\/", but it leads to a file, not a folder\.$/u
+        { kind: "slashedLinkToFile", params: { path: "/w/link/" } }
     );
     assert.equal(calls(io).includes("resolveAlias"), false, "the alias is not followed");
 });
@@ -116,5 +116,5 @@ test("a slashed chain of links is followed in order to the folder at its end", (
 test("a slashed link in a cycle is refused as a cycle", () => {
     const io = fixture({ "/w": directory, "/w/loop": { kind: "symlink", target: "/w/loop" } });
 
-    assert.throws(() => destination(selected("/w/loop", true), DEFAULTS, io, io), /Too many symbolic links, or a link cycle/u);
+    assert.throws(() => destination(selected("/w/loop", true), DEFAULTS, io, io), { kind: "tooManyLinks", params: { path: "/w/loop" } });
 });

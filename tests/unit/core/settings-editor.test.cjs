@@ -111,7 +111,7 @@ test("only installed terminal apps are offered", () => {
 test("with no terminal app installed there is nothing to offer, and that is said", () => {
     const io = picking([["terminal", "terminal"]], { isInstalled: () => false });
 
-    assert.throws(() => edit(io), /^Error: None of the terminal apps Term At Target can open is installed\.$/u);
+    assert.throws(() => edit(io), { kind: "noTerminalInstalled", params: {} });
 });
 
 test("Back from the values saves nothing and returns to the list", () => {
@@ -126,7 +126,7 @@ test("an answer that was not offered is refused, and nothing is saved", () => {
     for (const turn of [["colour", "red"], ["folder", "follow"], ["terminal", "xterm"]]) {
         const io = picking([turn]);
 
-        assert.throws(() => edit(io), /^Error: The settings list returned an invalid answer\.$/u, turn.join());
+        assert.throws(() => edit(io), { kind: "invalidAnswer", params: { question: turn[0] === "colour" ? "setting" : "settingValue" } }, turn.join());
         assert.equal(calls(io).includes("save"), false, turn.join());
     }
 });
@@ -134,5 +134,5 @@ test("an answer that was not offered is refused, and nothing is saved", () => {
 test("a terminal app that is not installed is not an answer, though it is a value", () => {
     const io = picking([["terminal", "ghostty"]], { isInstalled: (id) => id === "terminal" });
 
-    assert.throws(() => edit(io), /invalid answer/u);
+    assert.throws(() => edit(io), { kind: "invalidAnswer", params: { question: "settingValue" } });
 });

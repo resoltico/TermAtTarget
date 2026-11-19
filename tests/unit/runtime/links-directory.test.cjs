@@ -30,7 +30,7 @@ test("a symbolic link to a directory is a directory; an alias is not", () => {
     assert.doesNotThrow(() => validateDirectory(bridge, "/directory-link"));
     assert.throws(
         () => validateDirectory(bridge, "/alias"),
-        /^Error: The destination is no longer a directory: "\/alias"\.$/u
+        { kind: "destinationGone", params: { path: "/alias" } }
     );
     assert.equal(calls.some(([name]) => name === "resolve"), false, "no alias is resolved here");
 });
@@ -38,13 +38,13 @@ test("a symbolic link to a directory is a directory; an alias is not", () => {
 test("a file is not a directory", () => {
     const { bridge } = fakeFoundation();
 
-    assert.throws(() => validateDirectory(bridge, "/file"), /no longer a directory: "\/file"/u);
+    assert.throws(() => validateDirectory(bridge, "/file"), { kind: "destinationGone", params: { path: "/file" } });
 });
 
 test("a link to nothing cannot be inspected", () => {
     const { bridge } = fakeFoundation({ "/broken": { type: "symlink", target: "missing" } });
 
-    assert.throws(() => validateDirectory(bridge, "/broken"), /^Error: Cannot inspect "\/missing": missing \(NSCocoaErrorDomain 260\)$/u);
+    assert.throws(() => validateDirectory(bridge, "/broken"), { kind: "native", params: { operation: "inspect", path: "/missing", domain: "NSCocoaErrorDomain", code: 260, description: "missing" } });
 });
 
 test("a directory that cannot be entered is refused", () => {
@@ -52,7 +52,7 @@ test("a directory that cannot be entered is refused", () => {
 
     assert.throws(
         () => validateDirectory(bridge, "/locked"),
-        /^Error: The destination directory cannot be entered: "\/locked"\.$/u
+        { kind: "destinationNotEnterable", params: { path: "/locked" } }
     );
 });
 
@@ -61,6 +61,6 @@ test("a link cycle on the way to the destination is refused, not followed foreve
 
     assert.throws(
         () => validateDirectory(bridge, "/loop"),
-        /^Error: Too many symbolic links, or a link cycle, while resolving "\/loop"\.$/u
+        { kind: "tooManyLinks", params: { path: "/loop" } }
     );
 });
