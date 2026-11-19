@@ -19,7 +19,7 @@ export async function prepareFixtures(temp) {
         await mkdir(path.join(temp, name), { recursive: true });
     }
 
-    for (const name of ["file.txt", "doomed.txt", "folder/child.txt", `${HOSTILE}/item.txt`]) {
+    for (const name of ["file.txt", "doomed.txt", "folder/child.txt", "locked/child.txt", `${HOSTILE}/item.txt`]) {
         await writeFile(path.join(temp, name), "fixture\n");
     }
 

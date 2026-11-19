@@ -1,7 +1,7 @@
 "use strict";
 
 const { FOLDER, LINK, TERMINALS, terminalApp } = require("./vocabulary.js");
-const { presentName } = require("./present.js");
+const { escapeInvisible } = require("./present.js");
 const { refuse } = require("./outcomes.js");
 const { render } = require("./messages.js");
 
@@ -72,10 +72,10 @@ function settingsFrom(saved) {
 }
 
 function formatSaved(saved, locale) {
-    return presentName(typeof saved === "string" ? saved : describeSaved(saved, locale));
+    return escapeInvisible(describeSaved(saved, locale));
 }
 
 const settingLabel = (locale, key) => render(locale, `settings.${key}.label`);
 const valueLabel = (locale, key, value) => SETTINGS[key].valueLabel(locale, value);
 
-module.exports = { SETTINGS, KEYS, knownSetting, settingsFrom, describeSaved, formatSaved, settingLabel, valueLabel };
+module.exports = { SETTINGS, KEYS, knownSetting, settingsFrom, formatSaved, settingLabel, valueLabel };

@@ -20,13 +20,13 @@ const ports = (io) => [io, io];
 test("a file opens its containing folder, without asking anything", () => {
     const io = fixture({ "/work/file": file });
 
-    assert.equal(destination(selected("/work/file"), DEFAULTS, ...ports(io)), "/work");
+    assert.equal(destination(selected("/work/file"), DEFAULTS, ...ports(io)).path, "/work");
     assert.deepEqual(calls(io), ["inspect"]);
 });
 
 test("a folder opens inside or at its parent as configured, without asking", () => {
-    assert.equal(destination(selected("/work"), folderAction("inside"), ...ports(fixture())), "/work");
-    assert.equal(destination(selected("/work"), folderAction("parent"), ...ports(fixture())), "/");
+    assert.equal(destination(selected("/work"), folderAction("inside"), ...ports(fixture())).path, "/work");
+    assert.equal(destination(selected("/work"), folderAction("parent"), ...ports(fixture())).path, "/");
 
     const io = fixture();
 
@@ -38,7 +38,7 @@ test("the root is opened without a question, since inside and parent are the sam
     for (const config of [DEFAULTS, folderAction("parent"), folderAction("inside")]) {
         const io = fixture();
 
-        assert.equal(destination(selected("/"), config, ...ports(io)), "/");
+        assert.equal(destination(selected("/"), config, ...ports(io)).path, "/");
         assert.deepEqual(calls(io), ["inspect"]);
     }
 });
@@ -46,14 +46,14 @@ test("the root is opened without a question, since inside and parent are the sam
 test("asked, the answer decides, and the question says the folder was selected", () => {
     const io = fixture();
 
-    assert.equal(destination(selected("/work"), DEFAULTS, ...ports(io)), "/work");
+    assert.equal(destination(selected("/work"), DEFAULTS, ...ports(io)).path, "/work");
     assert.deepEqual(asked(io, "folder")[0], {
         id: "folder", params: { terminal: "Terminal", via: null, subject: "folder", name: "work", parent: "/" },
         answers: ["parent", "inside"], usual: "inside"
     });
 
     io.ask = () => "parent";
-    assert.equal(destination(selected("/work"), DEFAULTS, ...ports(io)), "/");
+    assert.equal(destination(selected("/work"), DEFAULTS, ...ports(io)).path, "/");
 });
 
 test("an answer that is neither inside nor parent is refused", () => {
@@ -65,7 +65,7 @@ test("an answer that is neither inside nor parent is refused", () => {
 test("choosing a folder opens inside it, even when folders open at their parent", () => {
     const io = fixture();
 
-    assert.equal(destination(null, folderAction("parent"), ...ports(io)), "/work");
+    assert.equal(destination(null, folderAction("parent"), ...ports(io)).path, "/work");
     assert.deepEqual(calls(io), ["chooseFolder", "path"]);
 });
 
@@ -86,15 +86,15 @@ test("a missing item is reported as missing", () => {
 });
 
 test("without a slash, a file is a file", () => {
-    assert.equal(destination(selected("/work/file"), DEFAULTS, ...ports(fixture({ "/work/file": file }))), "/work");
-    assert.equal(destination(selected("/work", false), folderAction("inside"), ...ports(fixture({ "/work": directory }))), "/work");
+    assert.equal(destination(selected("/work/file"), DEFAULTS, ...ports(fixture({ "/work/file": file }))).path, "/work");
+    assert.equal(destination(selected("/work", false), folderAction("inside"), ...ports(fixture({ "/work": directory }))).path, "/work");
 });
 
 test("the filesystem is asked through files, and the person through ask", () => {
     const fs = fixture({ "/work/a": { kind: "alias", target: "/work" } });
     const person = fixture();
 
-    assert.equal(destination(selected("/work/a"), DEFAULTS, fs, person), "/work");
+    assert.equal(destination(selected("/work/a"), DEFAULTS, fs, person).path, "/work");
     assert.deepEqual(calls(fs), ["inspect", "inspect", "resolveAlias", "inspect"]);
     assert.deepEqual(calls(person), ["ask:link", "ask:folder"]);
 });
@@ -123,7 +123,7 @@ test("stay opens the folder the link sits in, without reading its target", () =>
     for (const kind of ["alias", "symlink"]) {
         const io = untouchable(kind);
 
-        assert.equal(destination(selected("/work/broken"), configured("inside", "stay"), io, io), "/work", kind);
+        assert.equal(destination(selected("/work/broken"), configured("inside", "stay"), io, io).path, "/work", kind);
         assert.deepEqual(calls(io), ["inspect"], kind);
     }
 });
@@ -137,7 +137,7 @@ test("asked, the answer stay does the same, and the question names the kind", ()
             assert.deepEqual(question.params, { via: kind, terminal: "Terminal", name: "broken", parent: "/work" });
             return "stay";
         };
-        assert.equal(destination(selected("/work/broken"), DEFAULTS, io, io), "/work", kind);
+        assert.equal(destination(selected("/work/broken"), DEFAULTS, io, io).path, "/work", kind);
     }
 });
 
@@ -152,14 +152,14 @@ test("an answer that is neither target nor link location is refused", () => {
 test("follow applies the folder policy to what the link points at", () => {
     const io = fixture({ "/work/a": alias("/target"), "/target": directory });
 
-    assert.equal(destination(selected("/work/a"), configured("inside", "follow"), io, io), "/target");
-    assert.equal(destination(selected("/work/a"), configured("parent", "follow"), io, io), "/");
+    assert.equal(destination(selected("/work/a"), configured("inside", "follow"), io, io).path, "/target");
+    assert.equal(destination(selected("/work/a"), configured("parent", "follow"), io, io).path, "/");
 });
 
 test("follow at a file opens the file's folder, and asks only about the link", () => {
     const io = fixture({ "/work/b": alias("/target/file"), "/target": directory, "/target/file": file });
 
-    assert.equal(destination(selected("/work/b"), DEFAULTS, io, io), "/target");
+    assert.equal(destination(selected("/work/b"), DEFAULTS, io, io).path, "/target");
     assert.equal(calls(io).filter((name) => name === "ask:link").length, 1);
     assert.equal(calls(io).includes("ask:folder"), false);
 });
@@ -176,7 +176,7 @@ test("a folder reached through a link is asked about as where that link points",
 test("a link to the root opens the root without a folder question", () => {
     const io = fixture({ "/work/a": alias("/") });
 
-    assert.equal(destination(selected("/work/a"), DEFAULTS, io, io), "/");
+    assert.equal(destination(selected("/work/a"), DEFAULTS, io, io).path, "/");
     assert.equal(calls(io).includes("ask:folder"), false);
 });
 
@@ -203,11 +203,11 @@ test("a path that ended in / cannot name a file or a Finder alias", () => {
 
 test("a path that ended in / may name a folder, or a link that leads to one", () => {
     // Foundation spells a URL for a link to a folder with a slash too.
-    assert.equal(destination(selected("/work", true), folderAction("inside"), ...ports(fixture())), "/work");
+    assert.equal(destination(selected("/work", true), folderAction("inside"), ...ports(fixture())).path, "/work");
 
     const io = fixture({ "/work/link": { kind: "symlink", target: "/work" } });
 
-    assert.equal(destination(selected("/work/link", true), folderAction("inside"), io, io), "/work");
+    assert.equal(destination(selected("/work/link", true), folderAction("inside"), io, io).path, "/work");
 });
 
 const LEADS_TO_FILE = { kind: "slashedLinkToFile", params: { path: "/folder/linkfile/" } };
@@ -236,7 +236,7 @@ test("a slashed link that leads nowhere is refused as missing", () => {
 test("a slashed link to a folder is followed once, and then asked about as usual", () => {
     const io = fixture({ "/work/link": { kind: "symlink", target: "/target" }, "/target": directory });
 
-    assert.equal(destination(selected("/work/link", true), DEFAULTS, io, io), "/target");
+    assert.equal(destination(selected("/work/link", true), DEFAULTS, io, io).path, "/target");
     assert.equal(calls(io).filter((name) => name === "readLink").length, 1, "read once, for the check and the answer");
     assert.deepEqual(calls(io).filter((name) => name.startsWith("ask:")), ["ask:link", "ask:folder"]);
 });
@@ -246,13 +246,13 @@ test("a slashed link to a folder may still open where the link sits", () => {
         ask: () => "stay"
     });
 
-    assert.equal(destination(selected("/work/link", true), DEFAULTS, io, io), "/work");
+    assert.equal(destination(selected("/work/link", true), DEFAULTS, io, io).path, "/work");
 });
 
 test("without a slash, a link to a file or to nothing is not followed unless chosen", () => {
     const io = fixture({ "/work/gone": { kind: "symlink", target: "/missing" } }, { ask: () => "stay" });
 
-    assert.equal(destination(selected("/work/gone"), DEFAULTS, io, io), "/work");
+    assert.equal(destination(selected("/work/gone"), DEFAULTS, io, io).path, "/work");
     assert.equal(calls(io).includes("readLink"), false);
 });
 
@@ -280,7 +280,7 @@ test("a slashed chain of links is followed in order to the folder at its end", (
         "/target": directory
     });
 
-    assert.equal(destination(selected("/w/a", true), folderAction("inside"), io, io), "/target");
+    assert.equal(destination(selected("/w/a", true), folderAction("inside"), io, io).path, "/target");
 });
 
 test("a slashed link in a cycle is refused as a cycle", () => {

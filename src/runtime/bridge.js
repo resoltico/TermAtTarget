@@ -46,6 +46,19 @@ function nativeFailure(bridge, operation, path, error) {
     return fault("native", { operation, path, ...details });
 }
 
+const FILE_READ_NOT_FOUND = 260;
+
+function isCocoaError({ params }, code) {
+    return params.domain === "NSCocoaErrorDomain" && params.code === code;
+}
+
+// Measured with attributes, URL resource metadata and symbolic-link reads.
+function filesystemFailure(bridge, operation, path, error) {
+    const failure = nativeFailure(bridge, operation, path, error);
+
+    return isCocoaError(failure, FILE_READ_NOT_FOUND) ? fault("fileMissing", failure.params) : failure;
+}
+
 /*
  * A zero-argument Objective-C method, which JXA performs on property access.
  * Named once rather than written as a bare expression statement at each call,
@@ -55,4 +68,4 @@ function perform(target, method) {
     return target[method];
 }
 
-module.exports = { isNil, fileManager, nativeFailure, perform };
+module.exports = { isNil, fileManager, nativeFailure, filesystemFailure, isCocoaError, perform };

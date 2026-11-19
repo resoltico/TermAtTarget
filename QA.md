@@ -39,7 +39,9 @@ uses the arguments and return shapes recorded by native tests.
 osacompile and uses a separate bundle from `tests/integration/entry.cjs` to
 drive the actual adapters. The test entry checks Foundation input types,
 package metadata, Finder aliases, component-ordered symbolic-link traversal,
-file and folder destinations, and refusal and fault kinds. It verifies that
+file and folder destinations, and refusal and fault kinds. A missing item and
+an inaccessible item exercise distinct native error codes. A folder renamed
+while its question is open exercises destination validation. The suite verifies that
 resolving an alias to an ejected volume leaves the volume detached. It also
 checks the helper deadline and cleanup on real processes, compares name
 presentation in Node and osascript, and reads a saved preference from a

@@ -8,7 +8,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { inspect, isPackage, attributes, fileType, resourceBoolean } = require("../../../src/runtime/attributes.js");
-const { fakeFoundation, box } = require("./fake-foundation.cjs");
+const { fakeFoundation, box, nativeError, nil } = require("./fake-foundation.cjs");
 
 test("files, folders, aliases, links and special files are told apart", () => {
     const { bridge } = fakeFoundation();
@@ -50,7 +50,7 @@ test("whether a folder is a package is its own question", () => {
 });
 
 test("a package metadata failure is available to the core", () => {
-    for (const [entry, kind] of [[{ resourceError: true }, "native"], [{ resourceMissing: true }, "missingResourceValue"]]) {
+    for (const [entry, kind] of [[{ resourceError: true }, "fileMissing"], [{ resourceMissing: true }, "missingResourceValue"]]) {
         const { bridge } = fakeFoundation({ "/folder": { type: "directory", ...entry } });
 
         assert.throws(() => isPackage(bridge, "/folder"), { kind });
@@ -61,7 +61,7 @@ test("an alias question macOS cannot answer is an error, never a guess", () => {
     // Unlike the package question, the answer changes the destination.
     const { bridge } = fakeFoundation({ "/file": { type: "regular", resourceError: true } });
 
-    assert.throws(() => inspect(bridge, "/file"), { kind: "native", params: { operation: "readMetadata", path: "/file", domain: "NSCocoaErrorDomain", code: 260, description: "metadata error" } });
+    assert.throws(() => inspect(bridge, "/file"), { kind: "fileMissing", params: { operation: "readMetadata", path: "/file", domain: "NSCocoaErrorDomain", code: 260, description: "metadata error" } });
 });
 
 test("a special file is not asked anything more", () => {
@@ -74,7 +74,7 @@ test("a special file is not asked anything more", () => {
 test("an item that cannot be inspected says so, with macOS's reason", () => {
     const { bridge, made } = fakeFoundation();
 
-    assert.throws(() => attributes(bridge, "/missing"), { kind: "native", params: { operation: "inspect", path: "/missing", domain: "NSCocoaErrorDomain", code: 260, description: "missing" } });
+    assert.throws(() => attributes(bridge, "/missing"), { kind: "fileMissing", params: { operation: "inspect", path: "/missing", domain: "NSCocoaErrorDomain", code: 260, description: "missing" } });
     assert.equal(made.length, 1, "one out-parameter, for the error");
 });
 
@@ -95,7 +95,7 @@ test("metadata that cannot be read is an error, not a 'no'", () => {
     // An alias check that failed must not become "not an alias".
     const { bridge } = fakeFoundation({ "/file": { type: "regular", resourceError: true } });
 
-    assert.throws(() => inspect(bridge, "/file"), { kind: "native", params: { operation: "readMetadata", path: "/file", domain: "NSCocoaErrorDomain", code: 260, description: "metadata error" } });
+    assert.throws(() => inspect(bridge, "/file"), { kind: "fileMissing", params: { operation: "readMetadata", path: "/file", domain: "NSCocoaErrorDomain", code: 260, description: "metadata error" } });
 });
 
 test("an omitted resource value is an error, not a 'no'", () => {
@@ -112,4 +112,18 @@ test("a resource value is read as a boolean, through its own out-parameter", () 
 
     assert.equal(resourceBoolean(bridge, "/x", bridge.ns.NSURLIsAliasFileKey), true);
     assert.equal(made.length, 2, "one for the value and one for the error");
+});
+
+test("permission denial and the same code from another domain remain native faults", () => {
+    for (const [domain, code] of [["NSCocoaErrorDomain", "257"], ["TestDomain", "260"]]) {
+        const { bridge } = fakeFoundation();
+        bridge.ns.NSFileManager.defaultManager.attributesOfItemAtPathError = (path, out) => {
+            Object.assign(out, nativeError("synthetic failure", code), { domain: box(domain) });
+            return nil;
+        };
+
+        assert.throws(() => inspect(bridge, "/entry"), {
+            kind: "native", params: { operation: "inspect", path: "/entry", domain, code: Number(code), description: "synthetic failure" }
+        });
+    }
 });

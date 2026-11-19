@@ -4,8 +4,8 @@ const { SOURCE_LOCALE, render } = require("../core/messages.js");
 const { CHANGE_SETTINGS, isFault, isRefusal, remediesOf } = require("../core/outcomes.js");
 const { FOLDER, LINK, terminalApp } = require("../core/vocabulary.js");
 const { answerLabel } = require("../core/questions.js");
-const { SETTINGS, describeSaved, valueLabel } = require("../core/settings.js");
-const { escapeInvisible, presentName, presentPath } = require("../core/present.js");
+const { SETTINGS, formatSaved, valueLabel } = require("../core/settings.js");
+const { presentName, presentPath } = require("../core/present.js");
 const { alert } = require("./standard-additions.js");
 
 /*
@@ -50,7 +50,7 @@ const REFUSAL_MESSAGES = {
     settingUnrecognised({ setting, saved }) {
         return say("settingUnrecognised.message", {
             setting,
-            saved: escapeInvisible(describeSaved(saved, SOURCE_LOCALE)),
+            saved: formatSaved(saved, SOURCE_LOCALE),
             values: SETTINGS[setting].values.join(", ")
         });
     },
@@ -58,13 +58,19 @@ const REFUSAL_MESSAGES = {
         return say("terminalReadsVariables.message", { terminal, path });
     },
     aliasTargetMissing({ native }) {
-        return nativeMessage(native);
+        const option = valueLabel(SOURCE_LOCALE, "link", LINK.STAY);
+        return `${nativeMessage(native)} ${say("aliasTargetMissing.message", { option })}`;
     },
+    selectionMissing: ({ path, native }) => `${say("selectionMissing.message", { path })} ${nativeMessage(native)}`,
+    linkTargetMissing: ({ path, native }) => `${say("linkTargetMissing.message", { path })} ${nativeMessage(native)}`,
+    destinationMissing: ({ path, native }) => `${say("destinationMissing.message", { path })} ${nativeMessage(native)}`,
     launchUnconfirmed: launchPending
 };
 
 const FAULT_MESSAGES = {
     native: nativeMessage,
+    fileMissing: nativeMessage,
+    aliasUnresolved: nativeMessage,
     invalidAnswer: () => say("invalidAnswer.message"),
     tooManyAnswers: () => say("tooManyAnswers.message")
 };
@@ -100,9 +106,7 @@ const REMEDY_MESSAGES = {
     [FOLDER.PARENT]: ({ terminal }) => say("terminalReadsVariables.parent", {
         terminal, action: answerLabel(SOURCE_LOCALE, FOLDER.PARENT)
     }),
-    [LINK.STAY]: () => say("aliasTargetMissing.message", {
-        action: answerLabel(SOURCE_LOCALE, LINK.STAY), option: valueLabel(SOURCE_LOCALE, "link", LINK.STAY)
-    }),
+    [LINK.STAY]: () => say("rerunWithLinkLocation", { action: answerLabel(SOURCE_LOCALE, LINK.STAY) }),
     [CHANGE_SETTINGS]: () => SETTINGS_HINT
 };
 

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { SETTINGS, KEYS, knownSetting, settingsFrom, describeSaved } = require("../../../src/core/settings.js");
+const { SETTINGS, KEYS, knownSetting, settingsFrom, formatSaved } = require("../../../src/core/settings.js");
 const { FOLDER, LINK, START, TERMINALS, terminalApp } = require("../../../src/core/vocabulary.js");
 const { NOTHING_SAVED } = require("../../helpers.cjs");
 
@@ -82,28 +82,41 @@ test("a known setting is what a saved value stands for, or null when it stands f
  */
 
 test("text, numbers, truth values, lists and dictionaries are shown as written", () => {
-    assert.equal(describeSaved("LEVEL"), "\"LEVEL\"");
-    assert.equal(describeSaved(""), "\"\"");
-    assert.equal(describeSaved(3), "3");
-    assert.equal(describeSaved(true), "true");
-    assert.equal(describeSaved(["inside"]), "[\"inside\"]");
-    assert.equal(describeSaved({ key: "b" }), "{\"key\":\"b\"}");
-    assert.equal(describeSaved(null), "null");
-    assert.equal(describeSaved(undefined), "undefined");
+    assert.equal(formatSaved("LEVEL"), "\"LEVEL\"");
+    assert.equal(formatSaved(""), "\"\"");
+    assert.equal(formatSaved(3), "3");
+    assert.equal(formatSaved(true), "true");
+    assert.equal(formatSaved(["inside"]), "[\"inside\"]");
+    assert.equal(formatSaved({ key: "b" }), "{\"key\":\"b\"}");
+    assert.equal(formatSaved(null), "null");
+    assert.equal(formatSaved(undefined), "undefined");
 });
 
 test("a date is a date", () => {
-    assert.equal(describeSaved(new Date("2026-01-01T00:00:00Z")), "a date, 2026-01-01T00:00:00.000Z");
+    assert.equal(formatSaved(new Date("2026-01-01T00:00:00Z")), "a date, 2026-01-01T00:00:00.000Z");
 });
 
 test("anything else -- data, a native object -- is said to be not text, never {}", () => {
     class NativeData {}
 
-    assert.equal(describeSaved(new NativeData()), "a value that is not text");
-    assert.equal(describeSaved(Object.create(null)), "a value that is not text");
+    assert.equal(formatSaved(new NativeData()), "a value that is not text");
+    assert.equal(formatSaved(Object.create(null)), "a value that is not text");
 });
 
 test("the refusal uses the same description", () => {
     const saved = new Date("2026-01-01T00:00:00Z");
     assert.throws(() => settingsFrom({ ...NOTHING_SAVED, folder: saved }), { kind: "settingUnrecognised", params: { setting: "folder", saved } });
+});
+
+test("malformed saved text stays quoted and distinguishable after escaping", () => {
+    for (const [saved, expected] of [
+        ["123", '"123"'],
+        [123, "123"],
+        ["", '""'],
+        ["a\u202Eb", '"a\\u{202E}b"'],
+        ["a\\u{202E}b", '"a\\\\u{202E}b"'],
+        [["a\u202Eb"], '["a\\u{202E}b"]']
+    ]) {
+        assert.equal(formatSaved(saved, "en"), expected);
+    }
 });

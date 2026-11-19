@@ -103,7 +103,7 @@ function urlClass(entries, calls) {
             const entry = entries[url.path];
 
             if (entry.targetError) {
-                fill(error, nativeError("target error"));
+                fill(error, nativeError("target error", entry.targetErrorCode ?? "4"));
                 return nil;
             }
 

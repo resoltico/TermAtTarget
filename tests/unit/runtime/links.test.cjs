@@ -27,7 +27,7 @@ test("an alias is resolved without UI and without mounting, both at once", () =>
 test("an alias whose original cannot be found says so, and what would work instead", () => {
     const { bridge } = fakeFoundation({ "/alias": { targetError: true } });
 
-    assert.throws(() => resolveAlias(bridge, "/alias"), { kind: "aliasTargetMissing", params: { native: { operation: "resolveAlias", path: "/alias", domain: "NSCocoaErrorDomain", code: 260, description: "target error" } } });
+    assert.throws(() => resolveAlias(bridge, "/alias"), { kind: "aliasUnresolved", params: { operation: "resolveAlias", path: "/alias", domain: "NSCocoaErrorDomain", code: 4, description: "target error" } });
 });
 
 test("an alias to something that is not a local file is refused", () => {
@@ -46,7 +46,7 @@ test("a link's target is returned as spelled, relative or not", () => {
 test("a link that cannot be read says why", () => {
     const { bridge } = fakeFoundation({ "/symlink": { linkError: true } });
 
-    assert.throws(() => readLink(bridge, "/symlink"), { kind: "native", params: { operation: "readLink", path: "/symlink", domain: "NSCocoaErrorDomain", code: 260, description: "link error" } });
+    assert.throws(() => readLink(bridge, "/symlink"), { kind: "fileMissing", params: { operation: "readLink", path: "/symlink", domain: "NSCocoaErrorDomain", code: 260, description: "link error" } });
 });
 
 /*
@@ -88,7 +88,7 @@ test("a file is not a directory", () => {
 test("a link to nothing cannot be inspected", () => {
     const { bridge } = fakeFoundation({ "/broken": { type: "symlink", target: "missing" } });
 
-    assert.throws(() => validateDirectory(bridge, "/broken"), { kind: "native", params: { operation: "inspect", path: "/missing", domain: "NSCocoaErrorDomain", code: 260, description: "missing" } });
+    assert.throws(() => validateDirectory(bridge, "/broken"), { kind: "fileMissing", params: { operation: "inspect", path: "/missing", domain: "NSCocoaErrorDomain", code: 260, description: "missing" } });
 });
 
 test("a directory that cannot be entered is refused", () => {
@@ -107,4 +107,12 @@ test("a link cycle on the way to the destination is refused, not followed foreve
         () => validateDirectory(bridge, "/loop"),
         { kind: "tooManyLinks", params: { path: "/loop" } }
     );
+});
+
+test("an alias resolution permission failure keeps its native fault", () => {
+    const { bridge } = fakeFoundation({ "/alias": { targetError: true, targetErrorCode: "257" } });
+
+    assert.throws(() => resolveAlias(bridge, "/alias"), {
+        kind: "native", params: { operation: "resolveAlias", path: "/alias", domain: "NSCocoaErrorDomain", code: 257, description: "target error" }
+    });
 });

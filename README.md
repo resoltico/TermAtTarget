@@ -76,7 +76,9 @@ holding something invisible -- a line break, a direction mark, a soft hyphen,
 a space at either end -- is shown in quotes, with each such character written
 as `\u{XXXX}`; emoji and the joiners scripts like Devanagari are written with
 are shown as they are. Failure alerts use the same escaping and show the
-full path.
+full path. When a received item, followed link target or chosen destination
+is missing, the alert explains how to recover. Shortcuts can drop a missing
+input before Term At Target receives it.
 
 Packages are folders here: you may open inside them.
 

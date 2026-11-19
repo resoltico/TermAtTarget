@@ -67,7 +67,7 @@ function run(argv) {
     record(host.files.inspect(base + "/broken-alias").kind === "alias", "broken alias classification without target resolution");
     record(host.files.inspect(base + "/relative-link").kind === "symlink", "lstat-like symlink classification");
     record(files.isPackage(base + "/Demo.app") === true && files.isPackage(base + "/folder") === false, "package metadata, asked on its own");
-    fails(function () { files.isPackage(base + "/missing"); }, kindIs("native"), "package metadata failure reaches the core");
+    fails(function () { files.isPackage(base + "/missing"); }, kindIs("fileMissing"), "package metadata failure reaches the core");
     record(host.files.pathOf(Path(base + "/folder-alias")) === base + "/folder-alias", "Path preserves alias pathname");
     record(host.files.pathOf($(base + "/file.txt")) === base + "/file.txt", "NSString input");
     const reference = $.NSURL.fileURLWithPath(base + "/file.txt").fileReferenceURL;
@@ -83,13 +83,16 @@ function run(argv) {
     }
     record(host.files.readLink(base + "/relative-link") === "folder", "relative link content preserved");
     record(host.files.resolveAlias(base + "/folder-alias") === base + "/folder", "alias target resolution");
-    fails(function () { host.files.resolveAlias(base + "/broken-alias"); }, kindIs("aliasTargetMissing"), "broken target reported as an error");
+    fails(function () { host.files.resolveAlias(base + "/broken-alias"); }, kindIs("aliasUnresolved"), "broken target reported as an error");
     fails(function () { host.files.inspect(base + "/missing"); }, function (error) {
-        return error.kind === "native" && error.params.domain === "NSCocoaErrorDomain" && error.params.code === 260;
-    }, "missing item reported with its domain and code");
+        return error.kind === "fileMissing" && error.params.domain === "NSCocoaErrorDomain" && error.params.code === 260;
+    }, "missing item classified from the native domain and code");
+    fails(function () { host.files.inspect(base + "/locked/child.txt"); }, function (error) {
+        return error.kind === "native" && error.params.domain === "NSCocoaErrorDomain" && error.params.code === 257;
+    }, "permission denial stays distinct from a missing item");
     fails(function () { host.files.validateDirectory(base + "/file.txt"); }, kindIs("destinationGone"), "non-directory launch destination rejected");
     fails(function () { host.files.validateDirectory(base + "/locked"); }, kindIs("destinationNotEnterable"), "a folder that cannot be entered is refused");
-    fails(function () { host.files.resolveAlias(base + "/volume-alias"); }, kindIs("aliasTargetMissing"), "an alias to an ejected volume is refused, not remounted");
+    fails(function () { host.files.resolveAlias(base + "/volume-alias"); }, kindIs("aliasUnresolved"), "an alias to an ejected volume is refused, not remounted");
     host.files.validateDirectory(base + "/folder");
 
     const opened = [];
@@ -138,6 +141,14 @@ function run(argv) {
     refused([base + "/link-to-file/"], configured, "slashedLinkToFile", "a slashed link to a file is refused");
     refused([base + "/link-to-alias/"], configured, "slashedLinkToFile", "a slashed link to a Finder alias is refused");
     refused([base + "/folder"], planned("LEVEL", "ask"), "settingUnrecognised", "an unrecognised saved setting is refused");
+    refused([base + "/missing"], configured, "selectionMissing", "missing selection has contextual recovery");
+    refused([base + "/broken-link"], configured, "linkTargetMissing", "followed dangling link has contextual recovery");
+    const disappearing = planned("ask", "follow");
+    disappearing.ask = function (question) {
+        insist($.NSFileManager.defaultManager.moveItemAtPathToPathError(base + "/folder", base + "/renamed", $()), "rename chosen folder");
+        return question.usual;
+    };
+    refused([base + "/folder"], disappearing, "destinationMissing", "folder renamed while choosing is a missing destination");
     record(opened.length === count, "failed planning does not launch");
     return JSON.stringify({ passed: passed, count: passed.length,
         os: ObjC.unwrap($.NSProcessInfo.processInfo.operatingSystemVersionString) });

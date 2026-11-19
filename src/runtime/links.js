@@ -1,8 +1,8 @@
 "use strict";
 
-const { refuse, NATIVE_OPERATIONS } = require("../core/outcomes.js");
+const { refuse, fault, NATIVE_OPERATIONS } = require("../core/outcomes.js");
 const { physicalPath } = require("../core/resolve.js");
-const { isNil, fileManager, nativeFailure } = require("./bridge.js");
+const { isNil, fileManager, nativeFailure, filesystemFailure, isCocoaError } = require("./bridge.js");
 const { inspect } = require("./attributes.js");
 
 /*
@@ -20,6 +20,9 @@ function quietResolution(ns) {
     return ns.NSURLBookmarkResolutionWithoutUI | ns.NSURLBookmarkResolutionWithoutMounting;
 }
 
+// Foundation reports Cocoa code 4 for a Finder alias with a missing target.
+const ALIAS_TARGET_NOT_FOUND = 4;
+
 function resolveAlias(bridge, path) {
     const { ns, objc } = bridge;
     const error = bridge.outParameter();
@@ -30,10 +33,9 @@ function resolveAlias(bridge, path) {
     );
 
     if (isNil(url)) {
-        // The one native failure a person causes and can put right, so it says how.
         const failure = nativeFailure(bridge, NATIVE_OPERATIONS.RESOLVE_ALIAS, path, error);
 
-        throw refuse("aliasTargetMissing", { native: failure.params });
+        throw isCocoaError(failure, ALIAS_TARGET_NOT_FOUND) ? fault("aliasUnresolved", failure.params) : failure;
     }
 
     if (!url.isFileURL) {
@@ -48,7 +50,7 @@ function readLink(bridge, path) {
     const value = fileManager(bridge).destinationOfSymbolicLinkAtPathError(path, error);
 
     if (isNil(value)) {
-        throw nativeFailure(bridge, NATIVE_OPERATIONS.READ_LINK, path, error);
+        throw filesystemFailure(bridge, NATIVE_OPERATIONS.READ_LINK, path, error);
     }
 
     return String(bridge.objc.unwrap(value));

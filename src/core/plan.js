@@ -3,7 +3,7 @@
 const { absolutePath, parentPath } = require("./paths.js");
 const { physicalPath, resolveTarget } = require("./resolve.js");
 const { askAnswer, folderQuestion, linkQuestion } = require("./questions.js");
-const { refuse, fault } = require("./outcomes.js");
+const { refuse, fault, isFault, withMissingFile } = require("./outcomes.js");
 const { FOLDER, LINK } = require("./vocabulary.js");
 
 /*
@@ -19,23 +19,18 @@ const { FOLDER, LINK } = require("./vocabulary.js");
 
 const ROOT = "/";
 
-// Configured choices were validated by settingsFrom; only ask reads a new answer.
-function linkChoice({ path, kind }, settings, files, request) {
-    return settings.link === LINK.ASK
-        ? askAnswer(linkQuestion(path, kind, request.terminal, files), request.ask)
-        : settings.link;
-}
-
 function folderDestination({ path, via }, settings, files, request) {
     if (path === ROOT) {
-        return ROOT;
+        return { path, offeredParent: null };
     }
 
-    const choice = settings.folder === FOLDER.ASK
-        ? askAnswer(folderQuestion(path, via, request.terminal, files), request.ask)
-        : settings.folder;
+    const question = settings.folder === FOLDER.ASK ? folderQuestion(path, via, request.terminal, files) : null;
+    const choice = question === null ? settings.folder : askAnswer(question, request.ask);
+    const parent = parentPath(path);
 
-    return choice === FOLDER.INSIDE ? path : parentPath(path);
+    return choice === FOLDER.INSIDE
+        ? { path, offeredParent: question === null ? null : parent }
+        : { path: parent, offeredParent: null };
 }
 
 // A path ending in "/" cannot name a file, and a Finder alias is a file.
@@ -70,8 +65,24 @@ function slashedTarget(selection, files) {
  * link the person chose to follow -- what it points at. Null when the answer
  * is the link's own location, which needs no more inspection.
  */
+function followedTarget(path, files, question) {
+    const stayOffered = question !== null;
+
+    try {
+        return withMissingFile(() => resolveTarget(path, files),
+            (native) => refuse("linkTargetMissing", { path, native, stayOffered }));
+    } catch (error) {
+        if (isFault(error) && error.kind === "aliasUnresolved") {
+            throw refuse("aliasTargetMissing", { native: error.params, stayOffered });
+        }
+
+        throw error;
+    }
+}
+
 function standIn(selection, settings, files, request) {
-    const facts = files.inspect(selection.path);
+    const facts = withMissingFile(() => files.inspect(selection.path),
+        (native) => refuse("selectionMissing", { path: selection.path, native }));
 
     assertSlashFits(selection, facts);
 
@@ -79,25 +90,29 @@ function standIn(selection, settings, files, request) {
         return { path: selection.path, facts, via: null };
     }
 
-    const checked = selection.slashed ? slashedTarget(selection, files) : null;
+    const checked = selection.slashed ? withMissingFile(() => slashedTarget(selection, files),
+        (native) => refuse("linkTargetMissing", { path: selection.path, native, stayOffered: false })) : null;
 
-    if (linkChoice({ path: selection.path, kind: facts.kind }, settings, files, request) === LINK.STAY) {
+    const question = settings.link === LINK.ASK ? linkQuestion(selection.path, facts.kind, request.terminal, files) : null;
+    const choice = question === null ? settings.link : askAnswer(question, request.ask);
+
+    if (choice === LINK.STAY) {
         return null;
     }
 
-    return { ...checked ?? resolveTarget(selection.path, files), via: facts.kind };
+    return { ...checked ?? followedTarget(selection.path, files, question), via: facts.kind };
 }
 
 function destination(selection, settings, files, request) {
     if (selection === null) {
         // Choosing a destination is already an explicit "inside" operation.
-        return absolutePath(files.pathOf(request.chooseFolder()));
+        return { path: absolutePath(files.pathOf(request.chooseFolder())), offeredParent: null };
     }
 
     const item = standIn(selection, settings, files, request);
 
     if (item === null) {
-        return parentPath(selection.path);
+        return { path: parentPath(selection.path), offeredParent: null };
     }
 
     if (item.facts.kind === "directory") {
@@ -108,7 +123,7 @@ function destination(selection, settings, files, request) {
         throw fault("unknownItemKind", { path: item.path });
     }
 
-    return parentPath(item.path);
+    return { path: parentPath(item.path), offeredParent: null };
 }
 
 module.exports = { destination };

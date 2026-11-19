@@ -1,7 +1,7 @@
 "use strict";
 
 const { fault, NATIVE_OPERATIONS } = require("../core/outcomes.js");
-const { isNil, fileManager, nativeFailure } = require("./bridge.js");
+const { isNil, fileManager, filesystemFailure } = require("./bridge.js");
 
 /*
  * What a filesystem item is, asked of Foundation.
@@ -16,7 +16,7 @@ function attributes(bridge, path) {
     const result = fileManager(bridge).attributesOfItemAtPathError(path, error);
 
     if (isNil(result)) {
-        throw nativeFailure(bridge, NATIVE_OPERATIONS.INSPECT, path, error);
+        throw filesystemFailure(bridge, NATIVE_OPERATIONS.INSPECT, path, error);
     }
 
     return result;
@@ -38,7 +38,7 @@ function resourceBoolean(bridge, path, key) {
     const url = bridge.ns.NSURL.fileURLWithPath(path);
 
     if (!url.getResourceValueForKeyError(value, key, error)) {
-        throw nativeFailure(bridge, NATIVE_OPERATIONS.READ_METADATA, path, error);
+        throw filesystemFailure(bridge, NATIVE_OPERATIONS.READ_METADATA, path, error);
     }
 
     if (isNil(value)) {

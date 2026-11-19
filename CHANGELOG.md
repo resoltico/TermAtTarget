@@ -8,7 +8,9 @@
 - Failure alerts give specific headings for invalid inputs, link and destination problems, unavailable apps and failed or unconfirmed launches.
 - Alerts clarify how to replace relative paths, describe link traversal and missing native metadata, and escape direction controls in quoted saved text.
 - An unconfirmed launch alert now distinguishes a missed deadline, a lost observation and cleanup failures. It reports that the window may still appear.
-- Alias and kitty alerts use the labels shown on the corresponding buttons and settings options.
+- Alias and kitty alerts suggest a rerun with a different button only when the run offered that choice. Saved policies get the applicable Settings route.
+- Missing selections, dangling followed links and vanished destinations get separate recovery instructions and keep the native error details.
+- Settings and alerts distinguish quoted saved text from numbers and show empty text as two quotes.
 - Source archives use Git and commit timestamps. `npm run package` archives HEAD and excludes uncommitted work. `SOURCE_DATE_EPOCH` no longer changes archive times.
 - Release publication waits for a read-only Ubuntu build to match both files from the qualified macOS build byte for byte.
 - Contributors find wording in `src/core/messages.js`, outcome declarations in `src/core/outcomes.js` and questions in `src/core/questions.js`.

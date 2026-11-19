@@ -56,7 +56,7 @@ test("a saved value that is not recognised is shown as that, escaped like any na
         { key: "link", value: null, saved: "a\u202Eb", available: true }
     ]);
     assert.deepEqual(app.asked[0].items, [
-        "Terminal app: not recognised (xterm)",
+        "Terminal app: not recognised (\"xterm\")",
         "When a folder is selected: not recognised (a date, 2026-01-01T00:00:00.000Z)",
         "When a Finder alias is selected: not recognised (\"a\\u{202E}b\")"
     ]);

@@ -37,9 +37,17 @@ test("a refusal declares the remedies appropriate to its facts", () => {
     assert.deepEqual(remediesOf(refuse("multipleSelection")), []);
     assert.deepEqual(remediesOf(refuse("terminalMissing", { terminal: "kitty" })), ["changeSettings"]);
     assert.deepEqual(remediesOf(refuse("settingUnrecognised", { setting: "link", saved: 1 })), ["changeSettings"]);
-    assert.deepEqual(remediesOf(refuse("terminalReadsVariables", { terminal: "kitty", path: "/a/$x", parentUsable: true })),
+    assert.deepEqual(remediesOf(refuse("terminalReadsVariables", { terminal: "kitty", path: "/a/$x", parentOfferedAndUsable: true })),
         ["parent", "changeSettings"]);
-    assert.deepEqual(remediesOf(refuse("terminalReadsVariables", { terminal: "kitty", path: "/$a/$x", parentUsable: false })),
+    assert.deepEqual(remediesOf(refuse("terminalReadsVariables", { terminal: "kitty", path: "/$a/$x", parentOfferedAndUsable: false })),
         ["changeSettings"]);
-    assert.deepEqual(remediesOf(refuse("aliasTargetMissing", { native: {} })), ["stay"]);
+    assert.deepEqual(remediesOf(refuse("aliasTargetMissing", { native: {}, stayOffered: true })), ["stay", "changeSettings"]);
+});
+
+test("link remedies reflect the offered choice and the alias setting route", () => {
+    const native = {};
+
+    assert.deepEqual(remediesOf(refuse("aliasTargetMissing", { native, stayOffered: false })), ["changeSettings"]);
+    assert.deepEqual(remediesOf(refuse("linkTargetMissing", { path: "/link", native, stayOffered: true })), ["stay"]);
+    assert.deepEqual(remediesOf(refuse("linkTargetMissing", { path: "/link", native, stayOffered: false })), []);
 });

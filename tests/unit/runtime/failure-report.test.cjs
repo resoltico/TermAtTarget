@@ -43,15 +43,15 @@ test("full paths in an actual alert expose bidi controls that JSON spelling keep
 });
 
 test("the settings hint and parent remedy follow the declared remedies", () => {
-    const report = (parentUsable) => failureReport(refuse("terminalReadsVariables", {
-        terminal: "kitty", path: "/some/$folder", parentUsable
+    const report = (parentOfferedAndUsable) => failureReport(refuse("terminalReadsVariables", {
+        terminal: "kitty", path: "/some/$folder", parentOfferedAndUsable
     }));
     const base = 'kitty reads "$" in a folder\'s path as the start of a variable, so it would open somewhere other than /some/$folder. ' +
         "Choose another terminal app for this folder.";
 
     assert.deepEqual(report(true), {
         heading: "kitty can't open this folder",
-        message: `${base} The parent folder has no "$", so kitty can open it. Choose Open in Parent. ${HINT}`
+        message: `${base} The parent folder is available to kitty. Run Term At Target again and choose Open in Parent. ${HINT}`
     });
     assert.deepEqual(report(false), { heading: "kitty can't open this folder", message: `${base} ${HINT}` });
     assert.deepEqual(failureReport(refuse("settingUnrecognised", { setting: "link", saved: "unknown" })), {
@@ -60,22 +60,6 @@ test("the settings hint and parent remedy follow the declared remedies", () => {
     });
     assert.equal(failureReport(refuse("settingUnrecognised", { setting: "link", saved: 123 })).message,
         `The saved link setting, 123, is not one of ask, follow, stay. ${HINT}`);
-});
-
-test("saved text in an alert is quoted and shows direction controls", () => {
-    for (const [saved, expected] of [
-        ["123", '"123"'],
-        [123, "123"],
-        ["", '""'],
-        ["a\u202Eb", '"a\\u{202E}b"'],
-        ["a\\u{202E}b", '"a\\\\u{202E}b"'],
-        [["a\u202Eb"], '["a\\u{202E}b"]']
-    ]) {
-        assert.deepEqual(reported(refuse("settingUnrecognised", { setting: "terminal", saved })), [[
-            "The terminal setting isn't recognised",
-            `The saved terminal setting, ${expected}, is not one of terminal, ghostty, iterm2, kitty. ${HINT}`
-        ]]);
-    }
 });
 
 test("a relative path alert asks for an absolute replacement", () => {
@@ -94,10 +78,11 @@ test("native faults keep their specific operation and present path text safely",
     });
     assert.deepEqual(failureReport(fault("native", { ...DETAILS, description: null, domain: null, code: null })),
         { heading: GENERAL, message: "macOS could not inspect /x. macOS did not provide further details." });
-    assert.deepEqual(failureReport(refuse("aliasTargetMissing", { native: { ...DETAILS, operation: "resolveAlias" } })), {
+    assert.deepEqual(failureReport(refuse("aliasTargetMissing", { native: { ...DETAILS, operation: "resolveAlias" }, stayOffered: true })), {
         heading: "The alias's original can't be found",
         message: "macOS could not resolve the alias target for /x. macOS reported Folder missing (TestDomain, code 3). " +
-            "Choose Open Where It Is to open the folder containing the alias, or set Finder aliases to Open where it is in the settings."
+            "Set Finder aliases to Open where it is in the settings to open the folder containing the alias. " +
+            `Run Term At Target again and choose Open Where It Is to open the folder containing the link. ${HINT}`
     });
 });
 
@@ -119,18 +104,22 @@ function messageIds(kinds, construct, paramsFor) {
 
         assert.ok(heading.trim(), kind);
         assert.ok(message.trim(), kind);
-        return construct === refuse ? [`${kind}.summary`, `${kind}.message`] : [`${kind}.message`];
+        if (construct === refuse) {
+            return [`${kind}.summary`, `${kind}.message`];
+        }
+
+        return ["fileMissing", "aliasUnresolved"].includes(kind) ? [] : [`${kind}.message`];
     });
 }
 
 test("every declared outcome has words and every catalog entry has a consumer", () => {
     const sample = {
         ...DETAILS, native: DETAILS, terminal: "terminal", setting: "folder", saved: "bad", status: 1,
-        question: "start", parentUsable: true, cause: null, stopped: true, pid: null, cleanup: []
+        question: "start", stayOffered: true, parentOfferedAndUsable: true, cause: null, stopped: true, pid: null, cleanup: []
     };
     const paramsFor = (names) => Object.fromEntries(names.map((name) => [name, sample[name]]));
     const expected = [
-        "saved.date", "saved.opaque", "native.noDetails", "terminalReadsVariables.parent",
+        "saved.date", "saved.opaque", "native.noDetails", "terminalReadsVariables.parent", "rerunWithLinkLocation",
         "start.ready", "start.missing", "start.unrecognised", "chooseFolder.prompt",
         "folder.question", "folder.folder", "folder.package", "folder.via.alias", "folder.via.symlink", "link.alias", "link.symlink",
         ...["settings", "choose", "inside", "parent", "stay", "follow.alias", "follow.symlink"].map((name) => `answer.${name}.action`),
@@ -146,4 +135,33 @@ test("every declared outcome has words and every catalog entry has a consumer", 
 
     assert.deepEqual(Object.keys(CATALOG[SOURCE_LOCALE]).sort(), [...expected, ...refusalIds, ...faultIds].sort());
     assert.ok(Object.values(CATALOG[SOURCE_LOCALE]).every((message) => message.trim().length > 0));
+});
+
+test("a fixed alias uses Settings and an offered link button requires a rerun", () => {
+    const alias = failureReport(refuse("aliasTargetMissing", {
+        native: { ...DETAILS, operation: "resolveAlias" }, stayOffered: false
+    }));
+    const typed = (stayOffered) => failureReport(refuse("linkTargetMissing", { path: "/link", native: DETAILS, stayOffered }));
+
+    assert.doesNotMatch(alias.message, /choose Open Where It Is/iu);
+    assert.match(alias.message, /Set Finder aliases to Open where it is in the settings/u);
+    assert.match(typed(true).message, /Run Term At Target again and choose Open Where It Is/u);
+    assert.doesNotMatch(typed(false).message, /choose Open Where It Is/iu);
+});
+
+test("missing-file recovery identifies the user’s item and retains the native details", () => {
+    const native = { ...DETAILS, path: "/target", code: 260 };
+
+    for (const [kind, heading, recovery, extra] of [
+        ["selectionMissing", "The selected item is gone", "Select an existing item", {}],
+        ["linkTargetMissing", "The link target is missing", "Select the link’s containing folder", { stayOffered: false }],
+        ["destinationMissing", "The destination is gone", "Choose an existing folder", {}]
+    ]) {
+        const report = failureReport(refuse(kind, { path: "/received", native, ...extra }));
+
+        assert.equal(report.heading, heading);
+        assert.ok(report.message.includes("/received"), report.message);
+        assert.ok(report.message.includes(recovery), report.message);
+        assert.ok(report.message.includes("macOS could not inspect /target. macOS reported Folder missing (TestDomain, code 260)."));
+    }
 });

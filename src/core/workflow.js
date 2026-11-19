@@ -1,7 +1,7 @@
 "use strict";
 
-const { selectedPath, parentPath } = require("./paths.js");
-const { isCancellation, isRefusal, refuse } = require("./outcomes.js");
+const { selectedPath } = require("./paths.js");
+const { isCancellation, isRefusal, refuse, withMissingFile } = require("./outcomes.js");
 const { askAnswer, startQuestion } = require("./questions.js");
 const { destination } = require("./plan.js");
 const { START, SETUP, terminalApp } = require("./vocabulary.js");
@@ -49,13 +49,25 @@ function installed(id, terminals) {
     return terminal;
 }
 
-/*
- * A folder an app that expands variables would read as somewhere else. When
- * the folder it is in has no "$", that one would open, and the message says so.
- */
-function assertLiteral(terminal, path) {
-    if (terminal.readsVariables && path.includes("$")) {
-        throw refuse("terminalReadsVariables", { terminal: terminal.id, path, parentUsable: !parentPath(path).includes("$") });
+// An alternative is advice only. If its validation fails, omit the advice.
+function usableParent(path, files) {
+    if (path === null || path.includes("$")) {
+        return false;
+    }
+
+    try {
+        files.validateDirectory(path);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function assertLiteral(terminal, plan, files) {
+    if (terminal.readsVariables && plan.path.includes("$")) {
+        throw refuse("terminalReadsVariables", {
+            terminal: terminal.id, path: plan.path, parentOfferedAndUsable: usableParent(plan.offeredParent, files)
+        });
     }
 }
 
@@ -63,10 +75,11 @@ function open(selection, saved, host) {
     const settings = settingsFrom(saved);
     const terminal = installed(settings.terminal, host.terminals);
     const request = { terminal: terminal.name, ask: host.ask, chooseFolder: () => host.chooseFolder(terminal.name) };
-    const path = destination(selection, settings, host.files, request);
+    const plan = destination(selection, settings, host.files, request);
+    const { path } = plan;
 
-    host.files.validateDirectory(path);
-    assertLiteral(terminal, path);
+    withMissingFile(() => host.files.validateDirectory(path), (native) => refuse("destinationMissing", { path, native }));
+    assertLiteral(terminal, plan, host.files);
     host.terminals.launch(terminal.id, path);
     return { kind: "opened", terminal: terminal.id, path };
 }

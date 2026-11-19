@@ -263,15 +263,15 @@ const DOLLAR = "/work/dollar $HOME";
 test("kitty is refused a folder with a \"$\" in its path, after it is checked and before it is opened", () => {
     const io = fixture({ [DOLLAR]: { kind: "directory" } }, {}, { terminal: "kitty", folder: "inside" });
 
-    assertRefused(execute([DOLLAR], hostFor(io)), "terminalReadsVariables", { terminal: "kitty", path: DOLLAR, parentUsable: true });
+    assertRefused(execute([DOLLAR], hostFor(io)), "terminalReadsVariables", { terminal: "kitty", path: DOLLAR, parentOfferedAndUsable: false });
     assert.deepEqual(calls(io).slice(-2), ["inspect", "validate"]);
 });
 
 test("when the parent has a \"$\" too, kitty is only pointed at another app", () => {
     const deep = "/w$x/inner";
-    const io = fixture({ "/w$x": { kind: "directory" }, [deep]: { kind: "directory" } }, {}, { terminal: "kitty", folder: "inside" });
+    const io = fixture({ "/w$x": { kind: "directory" }, [deep]: { kind: "directory" } }, {}, { terminal: "kitty", folder: "ask" });
 
-    assertRefused(execute([deep], hostFor(io)), "terminalReadsVariables", { terminal: "kitty", path: deep, parentUsable: false });
+    assertRefused(execute([deep], hostFor(io)), "terminalReadsVariables", { terminal: "kitty", path: deep, parentOfferedAndUsable: false });
 });
 
 test("kitty opens any other folder", () => {
