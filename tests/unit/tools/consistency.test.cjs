@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { fakeRepo, packageJson, loadConsistency } = require("./fake-repo.cjs");
+const { fakeRepo, loadConsistency } = require("./fake-repo.cjs");
 
 test("agreeing values are accepted and returned", async () => {
     const { assertAll } = await loadConsistency();
@@ -47,22 +47,6 @@ test("agreeing version declarations are accepted", async () => {
     assert.equal(await checkVersion(fakeRepo()), "1.2.3");
 });
 
-test("each file that states the Node version is compared", async () => {
-    const { checkNodeVersion } = await loadConsistency();
-    const disagreements = {
-        ".node-version": "24.0.0\n",
-        "mise.toml": '[tools]\nnode = "24.0.0"\n',
-        "package.json": packageJson({ engines: { node: ">=24.0.0" } })
-    };
-
-    await Promise.all(Object.entries(disagreements).map(([file, content]) =>
-        assert.rejects(
-            () => checkNodeVersion(fakeRepo({ [file]: content })),
-            /Node versions disagree between files/u,
-            `${file} disagreeing must be caught`
-        )));
-});
-
 test("checkConsistency summarises every fact it agreed", async () => {
     const { checkConsistency } = await loadConsistency();
 
@@ -88,15 +72,11 @@ test("the agreed version must have dated release notes to publish", async () => 
 });
 
 test("a file that no longer states the fact is an error", async () => {
-    const { checkVersion, checkNodeVersion } = await loadConsistency();
+    const { checkVersion } = await loadConsistency();
 
     await assert.rejects(
         () => checkVersion(fakeRepo({ "INSTALL.txt": "no version here" })),
         /could not find the declared value in INSTALL\.txt/u
-    );
-    await assert.rejects(
-        () => checkNodeVersion(fakeRepo({ "mise.toml": "[tools]\n" })),
-        /could not find the declared value in mise\.toml/u
     );
 });
 

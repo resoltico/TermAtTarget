@@ -1,9 +1,8 @@
 "use strict";
 
 /*
- * The Node pin, which three files state, and the language year, which two
- * do: each must agree across all of them and, when it does not, say which
- * one is the odd one out.
+ * The Node pin and the language year each appear in two places.
+ * A disagreement names both declarations.
  */
 
 const assert = require("node:assert/strict");
@@ -20,8 +19,7 @@ test("the Node pin is read whole as well", async () => {
     const { checkNodeVersion } = await loadConsistency();
     const wide = {
         "package.json": packageJson({ engines: { node: ">=26.11.100" } }),
-        ".node-version": "26.11.100\n",
-        "mise.toml": '[tools]\nnode = "26.11.100"\n'
+        ".node-version": "26.11.100\n"
     };
 
     assert.equal(await checkNodeVersion(fakeRepo(wide)), "26.11.100");
@@ -29,11 +27,10 @@ test("the Node pin is read whole as well", async () => {
 
 test("a Node pin disagreement names the file that disagrees", async () => {
     // An error that says the pins disagree without saying where sends you
-    // through three files by hand.
+    // through both files by hand.
     const { checkNodeVersion } = await loadConsistency();
     const disagreements = [
         [".node-version", "26.9.9\n", ".node-version: 26.9.9"],
-        ["mise.toml", '[tools]\nnode = "26.9.9"\n', "mise.toml: 26.9.9"],
         ["package.json", packageJson({ engines: { node: ">=26.9.9" } }), "package.json engines: 26.9.9"]
     ];
 

@@ -94,7 +94,6 @@ export async function checkNodeVersion(read = readFromDisk) {
 
     return assertAll("Node versions", [
         [".node-version", (await read(".node-version")).trim()],
-        extract(await read("mise.toml"), /node = "(?<value>[\d.]+)"/u, "mise.toml"),
         ["package.json engines", packageJson.engines.node.replace(/^>=/u, "")]
     ]);
 }

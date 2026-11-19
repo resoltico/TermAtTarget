@@ -150,7 +150,7 @@ command on the tagged commit.
 
 ## Bumping Node and npm
 
-The Node version appears in `.node-version`, `mise.toml` and `engines`; the
+The Node pin in `.node-version` also sets the minimum in `engines.node`. The
 npm version, which writes the lockfile, in `packageManager` (what CI
 installs) and `engines.npm` (what `engine-strict` holds a local install to).
 The gate asserts each set agrees, but nothing watches for newer releases:

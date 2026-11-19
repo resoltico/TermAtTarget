@@ -36,7 +36,6 @@ function fakeRepo(overrides = {}) {
             "TERM AT TARGET 1.2.3 — SHORTCUTS INSTALLATION\nhttps://github.com/someone/Project\n",
         "CHANGELOG.md": "# Changelog\n\n## [1.2.3] - 2026-01-01\n\n### Fixed\n\n- A thing.\n",
         ".node-version": "26.8.1\n",
-        "mise.toml": '[tools]\nnode = "26.8.1"\n',
         "eslint.config.mjs": "const JXA_ECMA_VERSION = 2022;\n",
         "README.md": "Source: https://github.com/someone/Project\n",
         ...overrides
