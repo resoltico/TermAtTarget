@@ -4,8 +4,8 @@
  * The artifact's entry: a run hands the workflow what was selected and a
  * host made for that run.
  *
- * entry.js is three lines of glue, so the host it would build is substituted
- * in Node's module cache rather than faking a whole Mac underneath it.
+ * Substitute the host and workflow in Node's module cache to exercise the
+ * Shortcuts boundary directly.
  */
 
 const assert = require("node:assert/strict");
@@ -74,6 +74,28 @@ test("a refused or failed run is told in the host's alert, and then ends quietly
     }
 });
 
+test("opened, cancelled and settingsClosed finish without an alert or Shortcuts output", () => {
+    for (const outcome of [{ kind: "opened", terminal: "terminal", path: "/work" }, { kind: "cancelled" }, { kind: "settingsClosed" }]) {
+        const answer = withStandIns({
+            createMacHost: () => ({ report: () => assert.fail(`unexpected alert for ${outcome.kind}`) }),
+            execute: () => outcome
+        }, (entry) => entry.run([]));
+
+        assert.deepEqual(answer, [], outcome.kind);
+    }
+});
+
+test("a workflow outcome without a Shortcuts mapping is reported as a fault", () => {
+    const reported = [];
+    const answer = withStandIns({
+        createMacHost: () => ({ report: (error) => reported.push(error) }),
+        execute: () => ({ kind: "futureOutcome" })
+    }, (entry) => entry.run([]));
+
+    assert.deepEqual(answer, []);
+    assert.deepEqual(reported, [new TypeError("Unrecognised workflow outcome: futureOutcome.")]);
+});
+
 test("an unfamiliar envelope is reported at the Shortcuts boundary", () => {
     const reported = [];
     const answer = withStandIns({
@@ -88,16 +110,16 @@ test("an unfamiliar envelope is reported at the Shortcuts boundary", () => {
 test("a failure the alert cannot tell is thrown as itself, for Shortcuts to show", () => {
     const failure = new Error("refused");
 
-    assert.throws(() => withStandIns({
-        createMacHost: () => ({
-            report() {
-                throw new Error("no alert");
-            }
-        }),
-        execute() {
-            throw failure;
-        }
-    }, (entry) => entry.run(["/input"])), (error) => error === failure);
+    for (const execute of [() => ({ kind: "refused", refusal: failure }), () => { throw failure; }]) {
+        assert.throws(() => withStandIns({
+            createMacHost: () => ({
+                report() {
+                    throw new Error("no alert");
+                }
+            }),
+            execute
+        }, (entry) => entry.run(["/input"])), (error) => error === failure);
+    }
 });
 
 test("the production entry exports only run", () => {

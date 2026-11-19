@@ -49,14 +49,23 @@ function hasEdgeSpace(component) {
     return component.startsWith(SPACE) || component.endsWith(SPACE);
 }
 
+function visibleEscape(character) {
+    return `\\u{${character.codePointAt(0).toString(HEX).toUpperCase().padStart(CODE_DIGITS, "0")}}`;
+}
+
+// Keep the punctuation and quoting of an already formatted value.
+function escapeInvisible(text) {
+    const hidden = hiddenMarks(text);
+
+    return [...text].map((character, index) => hidden[index] ? visibleEscape(character) : character).join("");
+}
+
 function escaped(character, hidden) {
     if (character === QUOTE || character === BACKSLASH) {
         return `${BACKSLASH}${character}`;
     }
 
-    return hidden
-        ? `\\u{${character.codePointAt(0).toString(HEX).toUpperCase().padStart(CODE_DIGITS, "0")}}`
-        : character;
+    return hidden ? visibleEscape(character) : character;
 }
 
 function present(text, components) {
@@ -103,4 +112,4 @@ function presentLocation(path, home = null) {
     return { name: presentName(path.slice(path.lastIndexOf("/") + 1)), parent: presentPath(fromHome(parent, home) ?? parent) };
 }
 
-module.exports = { presentName, presentPath, presentLocation };
+module.exports = { presentName, presentPath, presentLocation, escapeInvisible };

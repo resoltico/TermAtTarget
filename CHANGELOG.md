@@ -6,7 +6,7 @@
 - Use `.node-version` and the npm pin in package.json for development. The repository no longer ships mise.toml or its task aliases.
 - Failure alerts show full paths with invisible and direction-changing characters escaped the same way as in questions.
 - Failure alerts give specific headings for invalid inputs, link and destination problems, unavailable apps and failed or unconfirmed launches.
-- Alerts use consistent wording for invalid input, link traversal and missing native metadata, and show unrecognised saved text using the same escaping as settings.
+- Alerts clarify how to replace relative paths, describe link traversal and missing native metadata, and escape direction controls in quoted saved text.
 - An unconfirmed launch alert now distinguishes a missed deadline, a lost observation and cleanup failures. It reports that the window may still appear.
 - Alias and kitty alerts use the labels shown on the corresponding buttons and settings options.
 - Source archives use Git and commit timestamps. `npm run package` archives HEAD and excludes uncommitted work. `SOURCE_DATE_EPOCH` no longer changes archive times.

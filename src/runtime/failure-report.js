@@ -4,8 +4,8 @@ const { SOURCE_LOCALE, render } = require("../core/messages.js");
 const { CHANGE_SETTINGS, isFault, isRefusal, remediesOf } = require("../core/outcomes.js");
 const { FOLDER, LINK, terminalApp } = require("../core/vocabulary.js");
 const { answerLabel } = require("../core/questions.js");
-const { SETTINGS, formatSaved, valueLabel } = require("../core/settings.js");
-const { presentName, presentPath } = require("../core/present.js");
+const { SETTINGS, describeSaved, valueLabel } = require("../core/settings.js");
+const { escapeInvisible, presentName, presentPath } = require("../core/present.js");
 const { alert } = require("./standard-additions.js");
 
 /*
@@ -50,7 +50,7 @@ const REFUSAL_MESSAGES = {
     settingUnrecognised({ setting, saved }) {
         return say("settingUnrecognised.message", {
             setting,
-            saved: formatSaved(saved, SOURCE_LOCALE),
+            saved: escapeInvisible(describeSaved(saved, SOURCE_LOCALE)),
             values: SETTINGS[setting].values.join(", ")
         });
     },

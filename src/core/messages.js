@@ -13,7 +13,7 @@ const CATALOG = Object.freeze({
         "pathBadEncoding.summary": "The file URL is invalid",
         "pathBadEncoding.message": "The file URL contains invalid percent-encoding or UTF-8.",
         "pathRelative.summary": "Use an absolute path",
-        "pathRelative.message": "Use an absolute POSIX path or a local file URL. Relative paths and ~ are taken as written.",
+        "pathRelative.message": "Relative paths and ~ are not expanded. Replace them with an absolute POSIX path or a local file URL.",
         "pathDotComponent.summary": "Select the item itself",
         "pathDotComponent.message": "Direct input must not contain . or .. path components. Select the item itself.",
         "multipleSelection.summary": "Select one item at a time",

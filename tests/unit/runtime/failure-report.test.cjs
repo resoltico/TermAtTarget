@@ -56,10 +56,33 @@ test("the settings hint and parent remedy follow the declared remedies", () => {
     assert.deepEqual(report(false), { heading: "kitty can't open this folder", message: `${base} ${HINT}` });
     assert.deepEqual(failureReport(refuse("settingUnrecognised", { setting: "link", saved: "unknown" })), {
         heading: "The link setting isn't recognised",
-        message: `The saved link setting, unknown, is not one of ask, follow, stay. ${HINT}`
+        message: `The saved link setting, "unknown", is not one of ask, follow, stay. ${HINT}`
     });
     assert.equal(failureReport(refuse("settingUnrecognised", { setting: "link", saved: 123 })).message,
         `The saved link setting, 123, is not one of ask, follow, stay. ${HINT}`);
+});
+
+test("saved text in an alert is quoted and shows direction controls", () => {
+    for (const [saved, expected] of [
+        ["123", '"123"'],
+        [123, "123"],
+        ["", '""'],
+        ["a\u202Eb", '"a\\u{202E}b"'],
+        ["a\\u{202E}b", '"a\\\\u{202E}b"'],
+        [["a\u202Eb"], '["a\\u{202E}b"]']
+    ]) {
+        assert.deepEqual(reported(refuse("settingUnrecognised", { setting: "terminal", saved })), [[
+            "The terminal setting isn't recognised",
+            `The saved terminal setting, ${expected}, is not one of terminal, ghostty, iterm2, kitty. ${HINT}`
+        ]]);
+    }
+});
+
+test("a relative path alert asks for an absolute replacement", () => {
+    assert.deepEqual(reported(refuse("pathRelative")), [[
+        "Use an absolute path",
+        "Relative paths and ~ are not expanded. Replace them with an absolute POSIX path or a local file URL."
+    ]]);
 });
 
 test("native faults keep their specific operation and present path text safely", () => {
