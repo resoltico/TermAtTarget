@@ -1,13 +1,13 @@
 "use strict";
 
+const assert = require("node:assert/strict");
+const test = require("node:test");
+
 /*
  * These documents name modules constantly, and this repository moves modules.
  * A reference that no longer resolves sends a reader to something that is not
  * there, and the prose still reads perfectly, so nothing else would notice.
  */
-
-const assert = require("node:assert/strict");
-const test = require("node:test");
 
 const load = () => import("../../../tools/lint/document-references.mjs");
 
@@ -147,4 +147,21 @@ test("a reference is resolved against the repository, not the cwd", async () => 
         false,
         "unreachable is an answer, not a failure"
     );
+});
+
+/*
+ * AGENTS.md is a baseline shared across repositories and quoted unchanged.
+ * Its backticked names are examples of naming, not files in this one.
+ */
+
+test("the shared agent baseline's examples are not references to resolve", async () => {
+    const { missingReferences } = await load();
+    const documents = {
+        files: ["AGENTS.md", "README.md"],
+        texts: ["Prefer `api/v2` to `Parser`.\n", "See `api/v2`.\n"]
+    };
+
+    assert.deepEqual(await missingReferences(documents, () => Promise.resolve(false)), [
+        "api/v2 (named by README.md)"
+    ]);
 });

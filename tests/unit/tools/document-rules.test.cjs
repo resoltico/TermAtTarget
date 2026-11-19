@@ -1,13 +1,13 @@
 "use strict";
 
+const assert = require("node:assert/strict");
+const test = require("node:test");
+
 /*
  * The documents were the one part of this repository nothing read, and one of
  * them was carrying its own opening twice. Each guard is asserted to reject
  * what it exists to reject, and to let through what it must.
  */
-
-const assert = require("node:assert/strict");
-const test = require("node:test");
 
 const load = () => import("../../../tools/lint/document-rules.mjs");
 
@@ -132,5 +132,130 @@ test("an invisible character in a document is refused, with its line", async () 
     assert.throws(
         () => checkDocument("a.md", `# T\n\nsee ${String.fromCodePoint(0x202E)}here\n`),
         /^Error: a\.md:3: has an invisible or control character, U\+202E$/u
+    );
+});
+
+/*
+ * A heading is where it is as much as what it says. Compared whole, a Keep a
+ * Changelog file repeats "### Fixed" under every release that fixed
+ * something, and those are different sections.
+ */
+
+test("a heading is placed under the headings it sits below", async () => {
+    const { headingPathsIn } = await load();
+    const paths = headingPathsIn("# T\n\n## A\n\n### X\n\n## B\n\n### X\n");
+
+    assert.deepEqual(paths.map((heading) => heading.path), [
+        "# T",
+        "# T > ## A",
+        "# T > ## A > ### X",
+        "# T > ## B",
+        "# T > ## B > ### X"
+    ]);
+});
+
+test("a level skipped over does not put a gap in the path", async () => {
+    const { headingPathsIn } = await load();
+    const paths = headingPathsIn("# T\n\n#### Deep\n");
+
+    assert.deepEqual(paths.at(-1).path, "# T > #### Deep");
+});
+
+test("a hash inside a fenced code block is not a heading", async () => {
+    // A shell comment in an example starts with a hash too. Read as a
+    // heading, it gives the document a second title.
+    const { headingPathsIn } = await load();
+    const text = "# T\n\n```sh\n# a comment\nnpm test\n```\n\n## After\n";
+
+    assert.deepEqual(headingPathsIn(text).map((heading) => heading.path), [
+        "# T",
+        "# T > ## After"
+    ]);
+});
+
+test("a heading with nothing above it stands alone", async () => {
+    // Nothing precedes it, so nothing is above it in the path either.
+    const { headingPathsIn } = await load();
+
+    assert.deepEqual(headingPathsIn("## A\n\ntext\n"), [
+        { line: "## A", path: "## A" }
+    ]);
+});
+
+/*
+ * Which files are documents, and what happens when two of them are broken.
+ */
+
+const DISCOVERY_TEXT = "# Title\n\n## One\n\ntext\n";
+
+test("Markdown and the two shipped plain files are documents", async () => {
+    const { isDocument } = await load();
+
+    for (const name of ["README.md", "QA.md", "INSTALL.txt", "LICENSE"]) {
+        assert.equal(isDocument(name), true, name);
+    }
+
+    // The extension ends the name: a backup or a template is not the document.
+    for (const name of [
+        "package.json", "notes.txt", "LICENSE.js", "readme",
+        "README.md.bak", "QA.md.tmpl"
+    ]) {
+        assert.equal(isDocument(name), false, name);
+    }
+});
+
+test("the walk is asked for documents, from the repository root", async () => {
+    // Asked for by predicate rather than filtered afterwards, so a directory
+    // the walk skips -- .stryker-tmp holds a copy of this whole repository --
+    // is never descended into for documents either.
+    const { documentNames, isDocument } = await load();
+    const calls = [];
+    const find = (directory, base, wanted) => {
+        calls.push({ directory, base, wanted });
+
+        return Promise.resolve(["README.md"]);
+    };
+
+    assert.deepEqual(await documentNames(find), ["README.md"]);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].directory, "", "the whole tree");
+    assert.equal(calls[0].wanted, isDocument);
+});
+
+test("a repository with no documents is an error, not a pass", async () => {
+    // A check that finds nothing to check reports success either way.
+    const { checkDocuments } = await load();
+
+    await assert.rejects(
+        () => checkDocuments(() => Promise.resolve(DISCOVERY_TEXT), () => Promise.resolve([])),
+        /no documents found/u
+    );
+});
+
+test("every document found is checked, and the text is handed back", async () => {
+    const { checkDocuments } = await load();
+    const find = () => Promise.resolve(["A.md", "B.md"]);
+    const read = (file) => Promise.resolve(`# ${file}\n\n## One\n`);
+    const documents = await checkDocuments(read, find);
+
+    assert.deepEqual(documents.files, ["A.md", "B.md"]);
+    assert.deepEqual(documents.texts, ["# A.md\n\n## One\n", "# B.md\n\n## One\n"]);
+});
+
+test("two broken documents always report the same one first", async () => {
+    // They are read together but checked in order. Reporting whichever
+    // rejected first would make the message depend on disk timing.
+    const { checkDocuments } = await load();
+    const find = () => Promise.resolve(["A.md", "B.md"]);
+    // A is answered a turn later, so an implementation that reported whichever
+    // finished first would report B.
+    const later = (text) => Promise.resolve().then(() => Promise.resolve(text));
+    const read = (file) => (file === "A.md"
+        ? later("# T\n\ntext \n")
+        : Promise.resolve("# T\n\ntext \n"));
+
+    await assert.rejects(
+        () => checkDocuments(read, find),
+        /^Error: A\.md: has trailing whitespace$/u
     );
 });

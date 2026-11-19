@@ -1,15 +1,16 @@
 "use strict";
 
+const assert = require("node:assert/strict");
+const test = require("node:test");
+const { createTerminalApps } = require("../../../src/runtime/terminal-apps.js");
+const { fakeTask, eventsNamed } = require("./fake-task.cjs");
+const { nil } = require("./fake-foundation.cjs");
+
 /*
  * A terminal app, found and opened at a directory by its bundle identifier:
  * the directory as one argument with no shell in between, and every way the
  * request can end said differently, in the app's own name.
  */
-
-const assert = require("node:assert/strict");
-const test = require("node:test");
-const { createTerminalApps } = require("../../../src/runtime/terminal-apps.js");
-const { fakeTask, eventsNamed } = require("./fake-task.cjs");
 
 function launcher(options, id = "terminal") {
     const fake = fakeTask(options);
@@ -105,4 +106,40 @@ test("each app is named as itself in what is said", () => {
     assert.throws(() => launch("/work"), { kind: "launchFailed", params: { terminal: "ghostty", path: "/work", status: 1 } });
     assert.throws(() => launcher({ start: false }, "ghostty").launch("/work"), { kind: "native", params: { operation: "launch", path: "/work", domain: "TestDomain", code: 1, description: "native-error" } });
     assert.throws(() => launcher({ runsFor: Infinity }, "ghostty").launch("/work"), { kind: "launchUnconfirmed", params: { terminal: "ghostty", path: "/work", cause: null, stopped: true, pid: 4242, cleanup: [] } });
+});
+
+/*
+ * Whether a terminal app is installed, asked of Launch Services by bundle
+ * identifier, so the answer is the same wherever and however it was installed.
+ */
+
+// NSWorkspace, knowing the apps at `installed` by identifier.
+function workspace(installed) {
+    const asked = [];
+    const ns = {
+        NSWorkspace: {
+            sharedWorkspace: {
+                URLForApplicationWithBundleIdentifier(identifier) {
+                    asked.push(identifier);
+                    return Object.hasOwn(installed, identifier) ? { isNil: () => false, path: installed[identifier] } : nil;
+                }
+            }
+        }
+    };
+
+    return { apps: createTerminalApps({ ns }, {}), asked };
+}
+
+test("an app Launch Services knows by its identifier is installed", () => {
+    const { apps, asked } = workspace({ "com.mitchellh.ghostty": "/Applications/Ghostty.app" });
+
+    assert.equal(apps.isInstalled("ghostty"), true);
+    assert.deepEqual(asked, ["com.mitchellh.ghostty"]);
+});
+
+test("one it does not know is not, whatever else is installed", () => {
+    const { apps, asked } = workspace({ "com.mitchellh.ghostty": "/Applications/Ghostty.app" });
+
+    assert.equal(apps.isInstalled("terminal"), false);
+    assert.deepEqual(asked, ["com.apple.Terminal"]);
 });

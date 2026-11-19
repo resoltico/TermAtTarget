@@ -1,5 +1,9 @@
 "use strict";
 
+const assert = require("node:assert/strict");
+const test = require("node:test");
+const { presentName, presentPath, presentLocation } = require("../../../src/core/present.js");
+
 /*
  * How names and paths are shown in a question: plainly when nothing in them
  * is invisible, and otherwise quoted, with every invisible character written
@@ -7,10 +11,6 @@
  * Every character outside ASCII is built from its code point here, so this
  * file holds none of the characters it is about.
  */
-
-const assert = require("node:assert/strict");
-const test = require("node:test");
-const { presentName, presentPath, presentLocation } = require("../../../src/core/present.js");
 
 const cp = (...points) => String.fromCodePoint(...points);
 const ZWJ = cp(0x200D);
@@ -134,4 +134,27 @@ test("a location is the item's name and the folder it is in, each shown", () => 
     assert.deepEqual(presentLocation("/Users/you/Downloads/Projects"), { name: "Projects", parent: "/Users/you/Downloads" });
     assert.deepEqual(presentLocation("/top"), { name: "top", parent: "/" });
     assert.deepEqual(presentLocation("/a\nb/c"), { name: "c", parent: "\"/a\\u{000A}b\"" });
+});
+
+/*
+ * A folder inside the person's home folder is shown from "~", which no other
+ * path shown begins with, so no two folders read the same.
+ */
+
+const parentOf = (path, home) => presentLocation(path, home).parent;
+
+test("a folder inside the home folder is shown from ~", () => {
+    assert.equal(parentOf("/Users/you/Downloads/Projects", "/Users/you"), "~/Downloads");
+    assert.equal(parentOf("/Users/you/Projects", "/Users/you"), "~");
+    assert.equal(parentOf("/Users/you/a b/x", "/Users/you"), "~/a b");
+    assert.equal(parentOf("/Users/you/a\nb/x", "/Users/you"), "\"~/a\\u{000A}b\"", "still escaped");
+});
+
+test("nothing outside it is", () => {
+    assert.equal(parentOf("/Users/your/Projects", "/Users/you"), "/Users/your", "a sibling that shares a prefix");
+    assert.equal(parentOf("/Users/Projects", "/Users/you"), "/Users");
+    assert.equal(parentOf("/top", "/"), "/", "home at the root is not shortened");
+    assert.equal(parentOf("/top/x", "/"), "/top");
+    assert.equal(parentOf("/top/x", null), "/top");
+    assert.equal(parentOf("/rel/x/y", "rel/x"), "/rel/x", "nor a home that is not absolute");
 });

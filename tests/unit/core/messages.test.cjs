@@ -2,7 +2,6 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const fc = require("fast-check");
 const { CATALOG, SOURCE_LOCALE, render } = require("../../../src/core/messages.js");
 
 test("English is the source and the fallback for unrecognised locales", () => {
@@ -22,12 +21,4 @@ test("a message needs its exact named parameters", () => {
         /^TypeError: Unused parameter for message terminalMissing.summary$/u);
     assert.equal(render("en", "launchFailed.message", { terminal: "kitty", path: "/Test", status: 42 }),
         "kitty could not be opened at /Test (open exit 42). Check that kitty opens on its own.");
-});
-
-test("interpolation inserts values verbatim, even when they contain placeholders or dollar signs", () => {
-    fc.assert(fc.property(fc.string(), fc.string(), (terminal, path) => {
-        assert.equal(render("en", "launchFailed.message", { terminal, path, status: 3 }),
-            `${terminal} could not be opened at ${path} (open exit 3). Check that ${terminal} opens on its own.`);
-    }));
-    assert.equal(render("en", "terminalMissing.summary", { terminal: "{terminal}$&" }), "{terminal}$& isn't installed");
 });

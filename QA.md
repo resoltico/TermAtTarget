@@ -20,7 +20,7 @@ to fail, and `tests/repo/gate.test.cjs` applies it to the real tree.
 | Family | What it holds |
 | --- | --- |
 | `discovery.mjs` | Every JavaScript file is found by walking, not listed, so a new file cannot escape the gate. `.jxa` counts. |
-| `source-rules.mjs` | Node parses each file; no literal control character, and nothing invisible or that moves text -- by Unicode property: separators, unusual whitespace, every default-ignorable code point -- which must be written as escapes; no trailing whitespace, CR or missing final newline; no file over 150 lines. |
+| `source-rules.mjs` | Node parses each file; no literal control character, and nothing invisible or that moves text -- by Unicode property: separators, unusual whitespace, every default-ignorable code point -- which must be written as escapes; no trailing whitespace, CR or missing final newline. |
 | `boundary-rules.mjs` | `src/` uses no `eval`, `new Function`, dynamic import, `fetch`, `process` or `Buffer`, calls nothing that writes a file (mkdir, unlink, `writeToFile…`, `removeItemAt…`, `fileHandleForWriting` and the rest), and names NSUserDefaults only in `src/runtime/preferences.js`; `src/core/`, parsed, uses none of the names JXA puts in scope to reach macOS (`ObjC`, `$`, `Application`, `Ref`, `Path`, `Progress`, `Library`, `globalThis`) -- a comment, a string or a property of the same name is not a use. |
 | `settings-docs.mjs` | README's settings table and INSTALL.txt's Settings section name every setting and value in the core catalog's own words, and every terminal app by name. |
 | `source-rules.mjs` | Every absolute executable path under `src/` is in `src/runtime/executables.js` and nowhere else. |

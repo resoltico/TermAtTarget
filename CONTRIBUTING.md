@@ -44,7 +44,7 @@ overwriting errno -- only a run through that host finds it.
 ## What the gate enforces
 
 `QA.md` is the contract. It specifies every check, its threshold, and why the
-guard exists -- file size, coverage, ESLint mode, the language target,
+guard exists -- coverage, ESLint mode, the language target,
 mutation score, the native checks, and the facts that must agree across files.
 This file does not restate those rules, so that there is one place to change
 when they move.

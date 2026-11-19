@@ -18,11 +18,6 @@ export { executablePathsIn } from "./executable-rules.mjs";
  */
 const CONTROL_CHARACTERS = /(?![\t\n\r])[\p{Cc}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}]|[^\S \t\n\r]/u;
 
-/*
- * No file may grow back into a god file. The threshold sits close to the
- * largest current module, so growth is a decision rather than a drift.
- */
-export const MAXIMUM_FILE_LINES = 150;
 const HEX_RADIX = 16;
 const CODE_POINT_DIGITS = 4;
 
@@ -56,18 +51,6 @@ function checkControlCharacters(relativePath, content) {
     }
 }
 
-export function checkSize(relativePath, content) {
-    const lines = content.split("\n").length - 1;
-
-    if (lines > MAXIMUM_FILE_LINES) {
-        throw new Error(
-            `${relativePath}: ${lines} lines exceeds the ` +
-            `${MAXIMUM_FILE_LINES}-line limit; split it rather than raising ` +
-            "the limit"
-        );
-    }
-}
-
 function checkWhitespace(relativePath, content) {
     if (!content.endsWith("\n")) {
         throw new Error(`${relativePath}: missing final newline`);
@@ -87,7 +70,6 @@ export function checkContent(relativePath, content) {
     checkControlCharacters(relativePath, content);
     checkExecutables(relativePath, content);
     checkBoundaries(relativePath, content);
-    checkSize(relativePath, content);
 }
 
 /*

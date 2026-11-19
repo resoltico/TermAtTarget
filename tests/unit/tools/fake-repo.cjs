@@ -5,7 +5,7 @@
  * controlled contents rather than only against the real tree.
  *
  * Every default here uses single-digit version components, which is what most
- * cases want; the width cases in consistency-versions.test.cjs override them.
+ * cases want; the width cases in the consistency tests override them.
  */
 function packageJson(overrides = {}) {
     return JSON.stringify({

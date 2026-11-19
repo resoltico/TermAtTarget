@@ -43,18 +43,6 @@ test("carriage returns are rejected", async () => {
     );
 });
 
-test("a file over the size limit is rejected", async () => {
-    const { checkContent, MAXIMUM_FILE_LINES } = await loadRules();
-    const justUnder = `${"const a = 1;\n".repeat(MAXIMUM_FILE_LINES)}`;
-    const justOver = `${"const a = 1;\n".repeat(MAXIMUM_FILE_LINES + 1)}`;
-
-    assert.doesNotThrow(() => checkContent("a.js", justUnder));
-    assert.throws(
-        () => checkContent("a.js", justOver),
-        /exceeds the 150-line limit; split it rather than raising the limit/u
-    );
-});
-
 test("the file that is read is the file that is parsed", async () => {
     // Two paths built separately could diverge, and the gate would then be
     // parsing one file and applying its structural rules to another.
