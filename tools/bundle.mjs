@@ -78,10 +78,10 @@ function headerFor(meta) {
  * Copyright (c) ${meta.copyright}
  * SPDX-License-Identifier: ${meta.license}
  *
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- * Source Code Form: ${meta.homepage}/tree/v${meta.version}
+ * You may redistribute or modify this program under the GNU Affero General
+ * Public License, version 3 only. It comes WITHOUT ANY WARRANTY.
+ * https://www.gnu.org/licenses/agpl-3.0.html
+ * Corresponding Source: ${meta.homepage}/tree/v${meta.version}
  *
  * Generated file; do not edit. Comments are stripped on build: the sources
  * they came from are at the address above. The notice the Unicode data tables

@@ -30,16 +30,16 @@ test("the same source renders the same artifact", async () => {
     assert.equal(await renderRelease(), await renderRelease());
 });
 
-test("the artifact opens with its name, version, MPL notice and where its source is", async () => {
+test("the artifact opens with its name, version, AGPL notice and where its source is", async () => {
     const { renderRelease } = await load();
     const artifact = await renderRelease();
     const { version } = require("../../../package.json");
 
     assert.ok(artifact.startsWith(`/*\n * Term At Target ${version}\n * https://github.com/resoltico/TermAtTarget\n`));
-    assert.match(artifact, /\n \* SPDX-License-Identifier: MPL-2\.0\n/u);
+    assert.match(artifact, /\n \* SPDX-License-Identifier: AGPL-3\.0-only\n/u);
     assert.match(artifact, /\n \* Copyright \(c\) 2026 Ervins Strauhmanis\n/u);
-    assert.match(artifact, /This Source Code Form is subject to the terms of the Mozilla Public\n \* License, v\. 2\.0\./u);
-    assert.ok(artifact.includes(` * Source Code Form: https://github.com/resoltico/TermAtTarget/tree/v${version}\n`));
+    assert.match(artifact, /GNU Affero General\n \* Public License, version 3 only\. It comes WITHOUT ANY WARRANTY\./u);
+    assert.ok(artifact.includes(` * Corresponding Source: https://github.com/resoltico/TermAtTarget/tree/v${version}\n`));
     assert.match(artifact, / \* with nothing selected\. Requires macOS 12\.3 or later\.\n \*\/\n\n/u);
 });
 

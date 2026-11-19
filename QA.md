@@ -53,50 +53,33 @@ Measured host behavior is documented where it affects the code. See
 `src/runtime/preferences.js` for named domains, and
 `src/runtime/supervise.js` for the process supervision choices.
 
-- `--dialogs` shows the start, folder and link questions and the failure alert for one second using Standard Additions. An unanswered question must report the invalid-answer fault.
+- `--dialogs` shows the start, folder and link questions and the failure alert for one second using Standard Additions. The check expects the invalid-answer fault after a question times out.
 - `--terminal` checks the exact working directory of a real shell in each installed supported app. It uses a disposable directory with characters a shell could misread.
 - `--shortcuts` drives both input routes through the installed harness shortcuts. It stages the production rendering with its preferences domain replaced and uses Accessibility to read and dismiss the multi-selection alert.
 
 The interactive modes need a logged-in session. The harness prerequisites
 are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Latest released verification
-
-The published 2.0.2 asset records 49 native checks on macOS 15.8.2
-(24H232), Apple Silicon, along with supervisor, presentation and preferences
-results. [Native macOS report](https://github.com/resoltico/TermAtTarget/releases/download/v2.0.2/native-macos.json)
-
-The release verification on macOS 27.2 (26B123), Apple Silicon, also
-recorded the interactive flags passing with Terminal, Ghostty, iTerm2 and
-kitty. The portable gate recorded 550 tests and 100% coverage and mutation.
-Git history retains the detailed record for that release.
-
 ## Interactive acceptance
 
-- Invoke the installed Quick Action from Finder and its assigned keyboard shortcut. Check each selection from the README input table against the shell's physical working directory.
+- Invoke the installed Quick Action from Finder and its assigned keyboard shortcut. Check each selection from the [README input table](README.md#what-opens-where) against the shell's physical working directory.
 - Check Return, Esc, Full Keyboard Access, VoiceOver, larger text, and light and dark appearance. Cancel each question in turn and confirm that the next run opens normally.
 - Open Settings from a run with nothing selected. Check that each change saves immediately, Back leaves the current setting alone, and Done closes the list. Use a test preferences domain for unfamiliar saved values.
 
-## Remaining evidence gaps
+## Verification limits
 
-The artifact targets macOS 12.3. Release evidence covers macOS 15 and 27
-on Apple Silicon. macOS 12.3 through 14 and Intel remain unverified.
-Hosted automation exercises the harness routes, while direct Finder
-triggers, settings lists and accessibility behavior require a person's
-session. Terminal app profiles and startup commands can independently change
-the directory. A rename or replacement between validation and the handoff
-remains possible. The engine's emoji data affects what it displays as an
-emoji sequence. Older engines can escape more characters. The full
+The script targets macOS 12.3. The workflow declares its hosted macOS runner,
+and release assets include the native evidence for that build. Use the native
+suite on the macOS build and hardware you need to verify.
+[Quality workflow](.github/workflows/quality.yml) · [Release assets](https://github.com/resoltico/TermAtTarget/releases/latest)
+
+Hosted automation checks the action through JXA. The Finder harness and
+dialog, terminal and Accessibility modes require an interactive macOS session.
+The acceptance steps above cover the installed Quick Action, settings and
+accessibility behaviour that a hosted run leaves open. Terminal app profiles
+and startup commands can independently change the directory. Older JavaScript
+engines can escape more characters because their emoji data differs. The full
 Ideographic Variation Database is outside the bundled data.
 
-## Rejected approaches
-
-- A run lock would add shared state to independent invocations. The Shortcuts bridge cannot reliably disambiguate lock errors through errno.
-- Capturing open's output with a pipe could delay the run after its deadline. The supervisor keeps its exit status and observes the task directly.
-- Sending SIGKILL by PID risks signalling a reused process identifier. Retrying an unconfirmed handoff could open a second window.
-- A second path check would still leave a race after that check. The terminal app receives a path.
-- A result object could be handed back to Finder. The Shortcuts adapter returns an empty list.
-- Editing settings into the script would invalidate its checksum and lose changes when replacing it. A named preferences domain survives replacement.
-- A Settings button on the folder question would displace Cancel and disappear when a saved policy skipped the question. The start question provides a consistent route.
-- A modifier-only settings shortcut is hard to find. An AppKit settings window was measured to block inside Shortcuts without appearing. Standard Additions supplies visible dialogs and lists.
-- Supporting a terminal app by display name or bundle identifier alone cannot establish where its shell starts. Each listed app needs a native working-directory measurement.
+[Security and data boundaries](SECURITY.md) explains the time between
+filesystem validation and application handoff.

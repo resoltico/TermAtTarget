@@ -1,4 +1,4 @@
-TERM AT TARGET 2.0.2 — SHORTCUTS INSTALLATION
+TERM AT TARGET 3.0.0 — SHORTCUTS INSTALLATION
 
 Source, releases and build attestation:
 
@@ -10,8 +10,9 @@ checkout to generate it in dist. QA.md records the verified platforms.
 Verifying what you downloaded
 =============================
 
-Every file in the release is signed with a GitHub build attestation. With the
-GitHub CLI installed, from the folder you downloaded them into:
+The attached release files have GitHub build attestations. With the GitHub
+CLI installed, verify the script and its SHA-256 checksum from the folder
+where you saved the files:
 
     gh attestation verify "Term-At-Target.jxa" \
         --repo resoltico/TermAtTarget
@@ -20,7 +21,7 @@ GitHub CLI installed, from the folder you downloaded them into:
 Requirements
 ============
 
-macOS 12.3 or later. Nothing has to be installed.
+macOS 12.3 or later. The action uses Shortcuts and Terminal from macOS.
 
 Install the Quick Action
 ========================
@@ -33,11 +34,9 @@ Install the Quick Action
    similarly named JavaScript-on-Web-Page action.
 5. Delete the example code. Paste all of Term-At-Target.jxa into the action.
 6. Feed Shortcut Input directly into this action. Do not put Get Selected
-   Files in Finder before it: that hands over whatever Finder has selected,
-   even when the shortcut is run from the Shortcuts app or the menu bar, so
-   the run is almost never given nothing and Settings is never offered. Do
-   not add a conversion or copying action that changes a selected item's path
-   or resolves its alias.
+   Files in Finder before it. That action can pass Finder's selection when
+   the shortcut runs elsewhere, bypassing the start prompt. Avoid copying
+   or converting the input, which can change its path or resolve an alias.
 7. Test a regular file, a folder, no input, and a Finder alias whose own location
    differs from its target. Check that the original path, not a temporary copy,
    reaches the action. QA.md lists the fuller checks.
@@ -53,9 +52,9 @@ asks; do not enable Full Disk Access merely as a generic installation step.
 Settings
 ========
 
-Run the shortcut with nothing selected -- from the Shortcuts app, the menu bar
-or its keyboard shortcut -- and choose Settings. Pick a setting, choose its new
-value, and pick Done when finished:
+Run the shortcut without input from the Shortcuts app, menu bar or its
+keyboard shortcut, and choose Settings…. Pick a setting, choose its new value,
+and pick Done when finished:
 
     Terminal app:                       Terminal / Ghostty / iTerm2 / kitty
     When a folder is selected:          Ask each time / Open inside /
@@ -63,9 +62,9 @@ value, and pick Done when finished:
     When a Finder alias is selected:    Ask each time / Follow the alias /
                                         Open where it is
 
-Until changed, Terminal opens and every choice is asked. Ghostty, iTerm2 and
-kitty are offered once installed, whether from their own websites or with
-Homebrew -- either way it is the same app:
+The defaults are Terminal and Ask each time for folders and Finder aliases.
+Ghostty, iTerm2 and kitty are offered when macOS can find them. Download them
+from their vendors or install them with Homebrew:
 
     brew install --cask ghostty
     brew install --cask iterm2
@@ -76,8 +75,8 @@ asks before an app downloaded from the Internet first opens. kitty reads "$"
 in a folder's path as a variable, so a folder whose path contains "$" is
 refused rather than opened in kitty somewhere else.
 
-Shortcuts hands over where a selected symbolic link leads, never the link
-itself, so the alias setting applies to Finder aliases.
+Shortcuts can pass a symbolic link's target in place of the link, or drop an
+unavailable input. The script applies its rules to the object it receives.
 
 The settings are saved in macOS preferences, in the domain
 com.resoltico.TermAtTarget. The script itself is never edited.
@@ -96,7 +95,15 @@ action writes nothing else.
 License
 ========
 
-Mozilla Public License 2.0. Copyright (c) 2026 Ervins Strauhmanis.
-The license is included in LICENSE; the script's header carries its notice.
-The matching source is at https://github.com/resoltico/TermAtTarget/tree/v2.0.2
-and in the source archive provided with this release.
+Copyright (c) 2026 Ervins Strauhmanis. Term At Target is licensed under the
+GNU Affero General Public License, version 3 only (AGPL-3.0-only). It comes
+without warranty. The full terms are in LICENSE and at
+https://www.gnu.org/licenses/agpl-3.0.html.
+
+When distributing the script or a modified version, preserve its license
+notices and make corresponding source available as the license requires.
+Find the matching source in the release's source archive or at
+https://github.com/resoltico/TermAtTarget/tree/v3.0.0.
+The bundled Unicode data retains its own license notice. No separate
+commercial license is currently offered through the repository. See
+LICENSE-COMMERCIAL.md in the source repository.

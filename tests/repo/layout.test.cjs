@@ -18,7 +18,6 @@ test("the package declares no runtime dependency at all", () => {
     // The artifact is one self-contained script: nothing is installed at run
     // time, so there is nothing for the package to depend on.
     assert.equal(pkg.dependencies, undefined);
-    assert.equal(pkg.license, "MPL-2.0");
 });
 
 test("the development toolchain is pinned exactly, and the lockfile agrees", async () => {
@@ -33,7 +32,9 @@ test("the development toolchain is pinned exactly, and the lockfile agrees", asy
 });
 
 test("the documents a release carries are all present", async () => {
-    const documents = ["QA.md", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md", "INSTALL.txt", "LICENSE"];
+    const documents = [
+        "QA.md", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md", "INSTALL.txt", "LICENSE", "LICENSE-COMMERCIAL.md"
+    ];
 
     await Promise.all(documents.map((name) => assert.doesNotReject(access(path.join(ROOT, name)), name)));
 });

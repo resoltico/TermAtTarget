@@ -1,71 +1,62 @@
 # Security and data boundaries
 
-Term At Target is a local directory launcher, not a sandbox, permission manager
-or command runner. Selected objects and their contents are never deliberately
-written by this script. macOS and filesystem services may perform their normal
-metadata/cache operations. Commands subsequently entered in the terminal app
-are outside this action's boundary.
+Term At Target selects a destination and hands its path to a local terminal
+app. The action reads filesystem metadata, leaves selected objects and their
+contents untouched, and saves its preferences. macOS and filesystem services
+may perform their normal metadata and cache operations. Commands entered
+in the terminal app run outside the action's boundary.
 
-## Paths and launch
+## Path identity
 
-The runtime passes the directory as a distinct NSTask argument to
-/usr/bin/open. Bundle identifiers come from the fixed table in
-`src/runtime/executables.js`. The path reaches the app without shell
-interpretation. The core refuses paths that an app would reinterpret.
-See the kitty rule in [README.md](README.md).
+The action uses the path it receives from Shortcuts. If an upstream action
+copies an object or resolves its alias, the action receives the transformed
+input. Check the input path on the actual host when diagnosing selection
+problems. [Direct-input setup](INSTALL.txt)
 
-`src/runtime/supervise.js` bounds the wait on a monotonic clock and
-terminates the helper through the task object. An unconfirmed request
-may still reach the app. The action makes one attempt.
+The action checks the final directory before handing it to the terminal app.
+When an alias is followed, macOS receives the without-UI and without-mounting
+options. Opening the folder containing an alias avoids resolving its target.
+Operations on an already mounted filesystem can still block.
 
-Questions and failure alerts use the path presentation rules in
-`src/core/present.js`. Alerts show full paths and escape controls and
-direction-changing characters. The filesystem and launch receive the
-original path.
+Questions and alerts display paths using the escaping rules in
+`src/core/present.js`. Alerts keep the full path and visibly escape controls
+and direction-changing characters. The filesystem and launcher receive the
+path itself.
 
-A selected Finder alias is classified before any target resolution. Choosing
-its own containing folder does not resolve its target. Chosen alias targets
-use withoutUI and withoutMounting options. This does not imply that access to
-already mounted network filesystems can never block, or that every operation
-macOS performs while accessing a path is under this script's control.
+## Launch and permissions
 
-Validation precedes an asynchronous application handoff. Another process can
-rename, remove or replace a directory between the check and Terminal opening
-it. The script does not provide an atomic or sandboxed working-directory
-transition, and an open exit status of zero does not prove a shell's actual
-working directory. Ordinary filesystem and Shortcuts access controls remain
-in effect; do not grant broad privileges to bypass a failure without diagnosis.
+The launcher passes the destination as a distinct argument to the macOS
+`open` helper through NSTask. The app bundle identifier comes from
+`src/runtime/executables.js`. The core refuses paths a supported app is
+known to reinterpret. [The kitty path rule](README.md#settings)
 
-## Saved settings, and no other state
+`src/runtime/supervise.js` bounds the wait on a monotonic clock and stops the
+helper through its task object. An unconfirmed request may still reach the
+app. Each action run makes at most one open request.
+
+The terminal app receives a path after validation. Another process can
+rename, remove or replace the directory in that interval. A successful
+helper exit indicates the handoff. The terminal's profile and startup
+commands can still affect the shell's working directory. Ordinary filesystem
+permissions and Shortcuts access controls apply throughout. Grant access
+for a selected location when it is needed.
+
+## Local state
 
 The preferences domain documented in [INSTALL.txt](INSTALL.txt) is the
 action's only persistent state. The source gate rejects filesystem writes
 and confines NSUserDefaults to `src/runtime/preferences.js`. Each run reads
 settings once and manages its own request.
 
-There is deliberately no run lock. Nothing is shared that needs protecting,
-and inside Shortcuts a lock cannot tell "another run holds it" from "locking
-failed" (errno is not readable there), so it would turn every locking failure
-into a silent no-op or every overlap into an error.
+## Provenance
 
-## Provenance and reports
-
-Shortcuts may transform its input before invoking JXA. The script cannot
-recover an alias or original Finder path that an upstream action has already
-resolved/copied. Verify direct-input identity on the actual host. Do not hide
-this problem by switching to Finder's later selection or guessing by basename.
-
-The artifact checksum detects a byte mismatch, not authorship. A locally
-created tar.gz has no signing or attestation claim. The included GitHub release
-workflow requests separate verified build attestations when it is actually
-run in the target repository. Preserve immutable/protected tags and suitable
-repository permissions; a last-moment remote tag check is not an atomic tag
-protection mechanism.
+For a downloaded script, check the SHA-256 manifest for byte integrity and
+verify the GitHub build attestation against the project repository. A local
+build has a checksum manifest. [Verification commands](INSTALL.txt)
 
 ## Reporting
 
-Report anything you believe to be a security problem through the repository's
-private vulnerability reporting, rather than as a public issue. Include the
-artifact checksum, the macOS and Shortcuts versions, how the action was
-invoked, and a minimal reproduction that holds no real filenames, alias
-targets or home paths.
+Use [GitHub's private vulnerability reporting](https://github.com/resoltico/TermAtTarget/security/advisories/new).
+Include the script's SHA-256 checksum, the macOS and Shortcuts versions,
+how the action was invoked, and a minimal reproduction with synthetic
+filenames, alias targets and paths.

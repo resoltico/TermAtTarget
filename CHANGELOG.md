@@ -2,8 +2,12 @@
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-19
+
+- Project code is licensed under AGPL-3.0-only. Contributors also grant the maintainer rights to license their contributions under separate terms.
 - Download Term-At-Target.jxa from Releases or use `npm run build`. The generated script and checksum manifest are no longer tracked in Git.
-- Use `.node-version` and the npm pin in package.json for development. The repository no longer ships mise.toml or its task aliases.
+- Use Node 26.13.1 and npm 12.2.3 for development. The repository no longer ships mise.toml or its task aliases.
+- Replace the script in your existing shortcut to upgrade. Saved settings carry over.
 - Failure alerts show full paths with invisible and direction-changing characters escaped the same way as in questions.
 - Failure alerts give specific headings for invalid inputs, link and destination problems, unavailable apps and failed or unconfirmed launches.
 - Alerts clarify how to replace relative paths, describe link traversal and missing native metadata, and escape direction controls in quoted saved text.
@@ -16,6 +20,7 @@
 - Contributors find wording in `src/core/messages.js`, outcome declarations in `src/core/outcomes.js` and questions in `src/core/questions.js`.
 - The production bundle exports only run. The native suite bundles its own test entry and checks refusal and fault kinds.
 - Example tests live together by module, with property tests kept separate. The source gate no longer imposes a 150-line limit.
+- Update the development gate to ESLint 10.15.0 and fast-check 4.10.3.
 
 ## [2.0.2] - 2026-10-31
 

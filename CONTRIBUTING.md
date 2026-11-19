@@ -2,6 +2,10 @@
 
 ## Working on this
 
+Use the Node version in `.node-version` and the npm version declared by
+`packageManager` in `package.json`. On macOS, install actionlint with
+Homebrew, then restore the pinned dependencies and run the portable gate.
+
 ```sh
 brew install actionlint
 npm ci --ignore-scripts
@@ -99,9 +103,9 @@ not what the data generates.
 `npm run build` generates `Term-At-Target.jxa` from `src/` through
 `tools/bundle.mjs`. esbuild targets the engine in macOS 12.3, removes
 whitespace and ordinary comments, and keeps function names. The header gives
-the MPL per-file notice, the version's source address and the macOS floor.
-The full licence ships as the release's
-`LICENSE`. The one comment kept is the Unicode data notice, which
+the AGPL version 3 only notice, the matching source address and the macOS
+floor. The release includes [LICENSE](LICENSE) and a source archive from
+the same commit. The Unicode data keeps its own notice, which
 `tools/unicode/tables.mjs` writes as a `/*! ... */` comment so that it travels
 with the tables, at the end of the file. Nothing in it is meant to be edited,
 so an installed copy is the released file byte for byte.
@@ -113,9 +117,10 @@ backticks would be clutter. Do not convert it.
 ## Releasing
 
 Update the version in `package.json`, refresh the lockfile with
-`npm install --package-lock-only --ignore-scripts`, change the version in the
-`INSTALL.txt` heading, and add one dated section to `CHANGELOG.md`. The gate
-requires all of these to agree.
+`npm install --package-lock-only --ignore-scripts`, and update the heading
+and version-specific source link in `INSTALL.txt`. Move the release's bullets
+from Unreleased into one dated section in `CHANGELOG.md`. The gate checks that
+the declared versions agree.
 
 A release is a tag. Pushing `v<version>` runs the release workflow, which
 qualifies the tagged source on macOS, rebuilds the artifact, and publishes it
@@ -142,7 +147,7 @@ command on the tagged commit.
 ## Bumping Node and npm
 
 The Node pin in `.node-version` also sets the minimum in `engines.node`. The
-npm version, which writes the lockfile, in `packageManager` (what CI
+npm version, which writes the lockfile, appears in `packageManager` (what CI
 installs) and `engines.npm` (what `engine-strict` holds a local install to).
 The gate asserts each set agrees, but nothing watches for newer releases:
 Dependabot does not track version files, so bumping is a deliberate manual
@@ -151,3 +156,21 @@ step.
 actionlint is installed from Homebrew unpinned, and GitHub's macOS image moves
 on its own, so the Quality workflow also runs every Monday: a change in either
 surfaces as a failing job rather than as silent drift.
+
+## Contribution terms
+
+By submitting a contribution (code, documentation, tests or other material) to
+this repository, you:
+
+- confirm that you wrote it or otherwise have the right to submit it on these
+  terms;
+- license it to everyone under this repository's public license,
+  `AGPL-3.0-only`; and
+- also grant Ervins Strauhmanis a perpetual, worldwide, non-exclusive,
+  royalty-free, irrevocable license to use, reproduce, modify, distribute and
+  sublicense it, and to license it under other terms, including the commercial
+  terms described in [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md).
+
+You keep the copyright in your contribution. Do not submit material you cannot
+license on these terms; third-party components keep their own licenses. Each
+pull request confirms these terms with the checkbox in its template.
