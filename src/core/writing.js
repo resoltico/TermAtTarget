@@ -12,7 +12,7 @@ const sets = require("./unicode-sets.js");
  *   between them, and a valid flag's tags from any others. Built from a string
  *   inside try/catch, so an engine without it still parses this file and
  *   simply keeps no emoji exception: every invisible character is shown.
- * - Variation selectors: a base and selector listed in the Unicode 17 emoji
+ * - Variation selectors: a base and selector listed in the vendored Unicode emoji
  *   variation sequences or standardized variants; or, after a Han ideograph,
  *   an ideographic variation selector. The IVD registry is not embedded (it
  *   is too large to paste), so an unregistered one there is the one unchecked

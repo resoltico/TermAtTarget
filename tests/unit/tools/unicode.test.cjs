@@ -6,10 +6,15 @@
  */
 
 const assert = require("node:assert/strict");
-const test = require("node:test");
+const { before, test } = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
-const sets = require("../../../src/core/unicode-sets.js");
+let sets = null;
+
+// Report a failure to initialize the tables as a test failure.
+before(() => {
+    sets = require("../../../src/core/unicode-sets.js");
+});
 
 const DATA = path.resolve(__dirname, "../../../tools/unicode/data");
 const HEX = 16;

@@ -53,9 +53,9 @@ function checkReleaseJobs(release) {
         "publish must perform no dependency installation");
 }
 
-test("qualification runs the gate, build and native suite before it uploads", async () => {
+test("qualification builds and tests native evidence before it uploads", async () => {
     const qualify = job(await read("release.yml"), "qualify");
-    const steps = ["npm run quality", "npm run build", "npm run test:integration:macos", "npm run package", "actions/upload-artifact"];
+    const steps = ["npm run build", "npm run test:integration:macos", "node tools/verify-native.mjs", "npm run package", "actions/upload-artifact"];
     const locations = steps.map((step) => qualify.indexOf(step));
 
     assert.ok(locations.every((location) => location >= 0));
@@ -86,10 +86,32 @@ test("the release job checks reject write access for reproduction and installs d
     assert.throws(() => checkReleaseJobs(installs), /publish must perform no dependency installation/u);
 });
 
+function requireNativeQualification(release) {
+    const publish = job(release, "publish");
+
+    assert.match(publish, /needs: \[source-quality, qualify, reproduce\]/u, "native success is required");
+    assert.doesNotMatch(publish, /^ {4}if:/mu, "publish uses the default dependency success condition");
+    assert.match(publish, /node tools\/verify-native\.mjs/u, "an absent report blocks publish");
+}
+
+test("reject release workflows that could publish after missing, failed or cancelled native qualification", async () => {
+    const release = await read("release.yml");
+    const needs = "    needs: [source-quality, qualify, reproduce]";
+    const bypass = release.replace(needs, `${needs}\n    if: always()`);
+    const omittedJob = release.replace(needs, "    needs: [source-quality, reproduce]");
+    const omittedReport = release.replace(/^ {10}node tools\/verify-native.mjs .*$/mu, "");
+
+    requireNativeQualification(release);
+    assert.throws(() => requireNativeQualification(bypass), /dependency success/u);
+    assert.throws(() => requireNativeQualification(omittedJob), /native success is required/u);
+    assert.throws(() => requireNativeQualification(omittedReport), /absent report/u);
+});
+
 test("publication waits for qualification, verifies what it publishes, and writes its own notes", async () => {
     const publish = job(await read("release.yml"), "publish");
 
-    assert.match(publish, /needs: \[qualify, reproduce\]/u);
+    assert.match(publish, /needs: \[source-quality, qualify, reproduce\]/u);
+    assert.match(publish, /node tools\/verify-native\.mjs/u);
     assert.match(publish, /gh attestation verify/u);
     assert.match(publish, /node tools\/release-notes\.mjs/u);
     assert.doesNotMatch(publish, /--generate-notes|--clobber/u);
@@ -97,4 +119,26 @@ test("publication waits for qualification, verifies what it publishes, and write
 
 test("there is no second copy of the release notes", async () => {
     await assert.rejects(access(path.join(ROOT, ".github/release-notes")));
+});
+
+test("portable quality and workflow lint run once on Linux per workflow", async () => {
+    const workflows = await Promise.all(["quality.yml", "release.yml"].map(read));
+
+    for (const workflow of workflows) {
+        const portable = job(workflow, "source-quality");
+
+        assert.match(portable, /runs-on: ubuntu-latest/u);
+        assert.match(portable, /bash tools\/install-actionlint\.sh/u);
+        assert.match(portable, /npm run quality/u);
+        assert.equal([...workflow.matchAll(/npm run quality/gu)].length, 1);
+        assert.doesNotMatch(workflow, /continue-on-error|if: always\(\)[\s\S]*?name: Extract notes/u);
+    }
+});
+
+test("the scheduled audit examines the whole lockfile and preserves its report", async () => {
+    const portable = job(await read("quality.yml"), "source-quality");
+
+    assert.match(portable, /github\.event_name == 'schedule'/u);
+    assert.match(portable, /npm audit --audit --json > reports\/npm-audit\.json/u);
+    assert.match(portable, /if: always\(\)[\s\S]+reports\//u);
 });

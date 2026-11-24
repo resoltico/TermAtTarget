@@ -171,7 +171,7 @@ test("the native entry exports the adapters in the test bundle", async () => {
     vm.runInContext(code, context);
     assert.deepEqual(Object.keys(context[ARTIFACT]).sort(), [
         "createFailureReport", "createFoundation", "createMacHost", "createPreferences",
-        "createQuestions", "execute", "presentName", "supervise"
+        "createQuestions", "execute", "presentName", "readSelection", "supervise", "validateDirectory"
     ]);
     assert.equal(typeof context[ARTIFACT].execute, "function");
 });

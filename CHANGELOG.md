@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-11-24
+
+- Rebuild and import the Term At Target QA shortcuts for isolated runs. The harness matches the current refusal before dismissing an alert and holds its staging lease after an unconfirmed run.
+- Settings refuse to save a terminal app that becomes unavailable while its choice is open.
+- Use Unicode 18.0 data to decide which joiners and variation selectors to preserve when displaying filenames and paths.
+- Release publication requires passing Linux checks and complete native case and presentation evidence tied to the macOS build and source commit.
+- Scheduled Quality runs audit the npm lockfile and retain the report.
+- Refresh development dependencies, including fast-check 4.11.0 and patched minimatch, glob and qs releases for the mutation-test tools.
+
 ## [3.0.0] - 2026-11-19
 
 - Project code is licensed under AGPL-3.0-only. Contributors also grant the maintainer rights to license their contributions under separate terms.

@@ -1,6 +1,6 @@
 "use strict";
 
-const { selectionOf } = require("./shortcuts-input.js");
+const { readSelection } = require("./shortcuts-input.js");
 const { execute } = require("../core/workflow.js");
 const { createMacHost } = require("./host.js");
 
@@ -25,7 +25,7 @@ function run(input) {
     const host = createMacHost();
 
     try {
-        finish(execute(selectionOf(input), host));
+        finish(execute(readSelection(input, host.files), host));
     } catch (error) {
         try {
             host.report(error);

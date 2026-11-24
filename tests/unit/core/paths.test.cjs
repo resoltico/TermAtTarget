@@ -137,47 +137,26 @@ test("only text that starts as a file URL is read as one", () => {
  * What was selected and how a path resolves to its parent.
  */
 
-function refuse() {
-    throw new Error("must not be coerced");
-}
-
-test("no input is no selection, and nothing is asked of it", () => {
-    for (const input of [null, undefined, []]) {
-        assert.equal(selectedPath(input, refuse), null);
-    }
-});
-
-test("one item, alone or in a list, is its path", () => {
-    assert.deepEqual(selectedPath("/work", String), { path: "/work", slashed: false });
-    assert.deepEqual(selectedPath(["/work"], String), { path: "/work", slashed: false });
-});
-
 test("a trailing slash is kept as a fact about what was given", () => {
     // It means the name cannot be a file; the planner holds it to that.
-    assert.deepEqual(selectedPath([{ path: "/work//" }], (value) => value.path), { path: "/work", slashed: true });
-    assert.deepEqual(selectedPath("file:///work/dir/", String), { path: "/work/dir", slashed: true });
-    assert.deepEqual(selectedPath("file:///work/dir", String), { path: "/work/dir", slashed: false });
+    assert.deepEqual(selectedPath("/work//"), { path: "/work", slashed: true });
+    assert.deepEqual(selectedPath("file:///work/dir/"), { path: "/work/dir", slashed: true });
+    assert.deepEqual(selectedPath("file:///work/%252F/"), { path: "/work/%2F", slashed: true });
+    assert.deepEqual(selectedPath("file:///work/dir"), { path: "/work/dir", slashed: false });
 });
 
 test("the root's slash is not a trailing slash", () => {
-    assert.deepEqual(selectedPath("/", String), { path: "/", slashed: false });
-    assert.deepEqual(selectedPath("///", String), { path: "/", slashed: false });
-});
-
-test("more than one item is refused before any is read", () => {
-    assert.throws(
-        () => selectedPath(["/one", "/two"], refuse),
-        { kind: "multipleSelection", params: {} }
-    );
+    assert.deepEqual(selectedPath("/"), { path: "/", slashed: false });
+    assert.deepEqual(selectedPath("///"), { path: "/", slashed: false });
 });
 
 test("the item is held to the path rules", () => {
-    assert.throws(() => selectedPath(["bad"], String), { kind: "pathRelative", params: {} });
+    assert.throws(() => selectedPath("bad"), { kind: "pathRelative", params: {} });
 });
 
 test("a parent is every component but the last, and the root is its own", () => {
     assert.equal(parentPath("/"), "/");
     assert.equal(parentPath("/work"), "/");
-    assert.equal(parentPath("/work/a/"), "/work");
-    assert.equal(parentPath("//work//a//b"), "/work/a");
+    assert.equal(parentPath("/work/a"), "/work");
+    assert.equal(parentPath("/work/a/b"), "/work/a");
 });

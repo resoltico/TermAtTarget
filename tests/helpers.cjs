@@ -39,12 +39,9 @@ function filesystem(items, record) {
             record("resolveAlias", path);
             return items[path].target;
         },
-        validateDirectory(path) {
+        canEnter(path) {
             record("validate", path);
-
-            if (items[path]?.kind !== "directory") {
-                throw new Error(`Not a directory: ${path}`);
-            }
+            return true;
         }
     };
 }
@@ -85,8 +82,8 @@ function mac(record, saved) {
             record("installed", id);
             return true;
         },
-        launch(id, path) {
-            record("launch", path, id);
+        launch({ terminal, path }) {
+            record("launch", path, terminal);
         }
     };
 }

@@ -7,7 +7,15 @@
 function run(input, parameters) {
     "use strict";
     ObjC.import("Foundation");
-    var directory = "/private/tmp/term-at-target-harness";
+    var directory = "/private/tmp/term-at-target-harness/active";
+    function read(name) {
+        return ObjC.unwrap($.NSString.stringWithContentsOfFileEncodingError(
+            directory + "/" + name, $.NSUTF8StringEncoding, $()));
+    }
+    var request = read("request");
+    if (!request) {
+        throw new Error("The Shortcuts QA harness has no active request.");
+    }
     function shape(value) {
         if (Array.isArray(value)) {
             return value.map(shape);
@@ -17,10 +25,9 @@ function run(input, parameters) {
         }
         return "item: " + String(value);
     }
-    $(JSON.stringify({ input: shape(input), parameters: shape(parameters) }))
+    $(JSON.stringify({ request: request, input: shape(input), parameters: shape(parameters) }))
         .writeToFileAtomicallyEncodingError(directory + "/last-input.json", true, $.NSUTF8StringEncoding, $());
-    var source = ObjC.unwrap($.NSString.stringWithContentsOfFileEncodingError(
-        directory + "/artifact.jxa", $.NSUTF8StringEncoding, $()));
+    var source = read("artifact.jxa");
     var artifactRun = (0, eval)("(function () {\n" + source + "\nreturn run;\n}())");
     return artifactRun(input, parameters);
 }

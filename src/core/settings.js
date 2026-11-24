@@ -78,4 +78,17 @@ function formatSaved(saved, locale) {
 const settingLabel = (locale, key) => render(locale, `settings.${key}.label`);
 const valueLabel = (locale, key, value) => SETTINGS[key].valueLabel(locale, value);
 
-module.exports = { SETTINGS, KEYS, knownSetting, settingsFrom, formatSaved, settingLabel, valueLabel };
+function rowLabel(locale, { key, value, saved, available }) {
+    const label = settingLabel(locale, key);
+
+    if (value === null) {
+        return render(locale, "settings.unrecognised", { label, value: formatSaved(saved, locale) });
+    }
+
+    const id = available ? "settings.row" : "settings.notInstalled";
+    return render(locale, id, { label, value: valueLabel(locale, key, value) });
+}
+
+const settingPrompt = (locale, key) => render(locale, `settings.${key}.prompt`);
+
+module.exports = { SETTINGS, KEYS, knownSetting, settingsFrom, formatSaved, settingLabel, settingPrompt, valueLabel, rowLabel };

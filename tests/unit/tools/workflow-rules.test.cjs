@@ -2,11 +2,6 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-
-/*
- * The workflows are the one part of this project that has never executed, so
- * a mistake in them would surface on a first push rather than in the gate.
- */
 const load = () => import("../../../tools/lint/workflow-rules.mjs");
 
 test("workflow files are recognised by extension", async () => {
@@ -296,4 +291,10 @@ test("a commit pin must be the whole reference", async () => {
 
     assert.deepEqual(unpinnedActions(`- uses: a/b@${sha}\n`), []);
     assert.deepEqual(unpinnedActions(`- uses: a/b@${sha}x\n`), [`a/b@${sha}x`]);
+});
+test("the hosted portable gate requires actionlint", async () => {
+    const { checkWorkflows } = await load();
+    await assert.rejects(() => checkWorkflows({
+        available: false, required: true, files: ["quality.yml"], read: () => Promise.resolve("")
+    }), /actionlint is required/u);
 });

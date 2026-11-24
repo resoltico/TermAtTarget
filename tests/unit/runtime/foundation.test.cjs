@@ -20,8 +20,7 @@ test("each filesystem question is answered through the bridge it was made with",
     assert.equal(files.resolveAlias("/alias"), "/folder");
     assert.equal(files.readLink("/symlink"), "file");
     assert.equal(files.pathOf(box("/given")), "/given");
-    assert.doesNotThrow(() => files.validateDirectory("/folder"));
-    assert.throws(() => files.validateDirectory("/file"), { kind: "destinationGone", params: { path: "/file" } });
+    assert.equal(files.canEnter("/folder"), true);
 });
 
 test("the dialogs' and launcher's primitives are there too, bound the same way", () => {
@@ -34,7 +33,7 @@ test("the dialogs' and launcher's primitives are there too, bound the same way",
     assert.deepEqual(files.nativeFailure("inspect", "/x", nativeError("busy")).params,
         { operation: "inspect", path: "/x", domain: "NSCocoaErrorDomain", code: 260, description: "busy" });
     assert.deepEqual(Object.keys(files).sort(), [
-        "home", "inspect", "isNil", "isPackage", "nativeFailure", "pathOf", "readLink", "resolveAlias", "validateDirectory"
+        "canEnter", "home", "inspect", "isNil", "isPackage", "nativeFailure", "pathOf", "readLink", "resolveAlias"
     ]);
 });
 

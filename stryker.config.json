@@ -1,10 +1,10 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
   "packageManager": "npm",
-  "_comment_testRunner": "The tap runner executes each test file directly (node <file>), which keeps it in the same process as Stryker coverage hook. Running them via `node --test` forks a child per file, the hook records nothing, and every mutant reports NoCoverage.",
+  "testRunner_comment": "The tap runner executes each test file directly (node <file>), which keeps it in the same process as Stryker coverage hook. Running them via `node --test` forks a child per file, the hook records nothing, and every mutant reports NoCoverage.",
   "testRunner": "tap",
   "coverageAnalysis": "perTest",
-  "_comment_mutate": "Only code that tests/unit can meaningfully kill. tests/repo reads the real source tree, which a mutation sandbox deliberately alters, so it is not part of the runner. The Unicode tables are generated data, checked against their sources, not code to mutate.",
+  "mutate_comment": "Only code that tests/unit can meaningfully kill. tests/repo reads the real source tree, which a mutation sandbox deliberately alters, so it is not part of the runner. The Unicode tables are generated data, checked against their sources, not code to mutate.",
   "mutate": [
     "src/**/*.js",
     "!src/core/unicode-tables.js"
@@ -24,7 +24,7 @@
   "clearTextReporter": {
     "maxTestsToLog": 0
   },
-  "_comment_incremental": "Incremental mode is off: a full run takes about half a minute with per-test analysis, so the complexity and the risk of a stale incremental report are not worth it.",
+  "incremental_comment": "Incremental mode is off: a full run takes about half a minute with per-test analysis, so the complexity and the risk of a stale incremental report are not worth it.",
   "thresholds": {
     "high": 100,
     "low": 99,
@@ -32,8 +32,8 @@
   },
   "tempDirName": ".stryker-tmp",
   "timeoutMS": 20000,
-  "_comment_thresholds": "break sits a couple of points below the measured score (100 at the last full run), so an ordinary change cannot fail on noise while a real drop in test strength does.",
-  "_comment_tap": "The fast-check settings file pins the seed and the case count for a campaign only, so every mutant meets the same inputs; everywhere else the properties run on fast-check's defaults. See tests/unit/fast-check-mutation.cjs.",
+  "thresholds_comment": "break sits a couple of points below the measured score (100 at the last full run), so an ordinary change cannot fail on noise while a real drop in test strength does.",
+  "tap_comment": "The fast-check settings file pins the seed and the case count for a campaign only, so every mutant meets the same inputs; everywhere else the properties run on fast-check's defaults. See tests/unit/fast-check-mutation.cjs.",
   "tap": {
     "nodeArgs": [
       "-r",

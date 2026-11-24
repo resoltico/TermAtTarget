@@ -45,17 +45,17 @@ function withStandIns(standIns, action) {
 
 test("a run hands the workflow its input and a new host", () => {
     const received = [];
-    const madeHost = { made: true };
+    const madeHost = { files: { pathOf: (value) => value.path } };
     const answer = withStandIns({
         createMacHost: () => madeHost,
         execute(...args) {
             received.push(args);
             return { kind: "opened" };
         }
-    }, (entry) => entry.run([["/input"], { source: "", ignoresInput: false }]));
+    }, (entry) => entry.run([[{ path: "/input" }], { source: "", ignoresInput: false }]));
 
     assert.deepEqual(answer, []);
-    assert.deepEqual(received, [[["/input"], madeHost]]);
+    assert.deepEqual(received, [["/input", madeHost]]);
     assert.equal(received[0][1], madeHost);
 });
 
@@ -67,7 +67,7 @@ test("a refused or failed run is told in the host's alert, and then ends quietly
         const reported = [];
         const answer = withStandIns({
             createMacHost: () => ({ report: (error) => reported.push(error) }), execute
-        }, (entry) => entry.run(["/input"]));
+        }, (entry) => entry.run([]));
 
         assert.deepEqual(answer, []);
         assert.deepEqual(reported, [failure]);
@@ -118,7 +118,7 @@ test("a failure the alert cannot tell is thrown as itself, for Shortcuts to show
                 }
             }),
             execute
-        }, (entry) => entry.run(["/input"])), (error) => error === failure);
+        }, (entry) => entry.run([])), (error) => error === failure);
     }
 });
 

@@ -78,14 +78,6 @@ export function hasActionlint(probe = probeActionlint) {
 }
 
 /*
- * The workflows are the one part of this project that has never executed, so a
- * mistake in them surfaces on a first push rather than in the gate. actionlint
- * checks the schema, the expression syntax, and the shell inside `run:` steps.
- *
- * It is optional in the same way shellcheck is: the gate must stay runnable on
- * a machine that does not have it, and CI installs it.
- */
-/*
  * Workflows live in one place and are text, not bytes: read as a Buffer the
  * pinning patterns would match nothing and every workflow would look clean.
  */
@@ -97,6 +89,14 @@ export function runActionlint(files, exec = execFileSync) {
     exec("actionlint", files, { stdio: "inherit" });
 }
 
+function withoutActionlint(count, required) {
+    if (required) {
+        throw new Error("actionlint is required for the hosted portable gate.");
+    }
+
+    return `${count} workflows (actionlint not installed, skipped)`;
+}
+
 export async function checkWorkflows(options = {}) {
     // The probe is a parameter so that the decision to run actionlint can
     // be tested, not only the two answers it leads to.
@@ -106,14 +106,10 @@ export async function checkWorkflows(options = {}) {
 
     assertWorkflowsFound(found);
 
-    const read = options.read ?? readWorkflow;
-
-    await Promise.all(found.map(async (file) => {
-        assertPinned(file, await read(file));
-    }));
+    await Promise.all(found.map(async (file) => assertPinned(file, await (options.read ?? readWorkflow)(file))));
 
     if (!available) {
-        return `${found.length} workflows (actionlint not installed, skipped)`;
+        return withoutActionlint(found.length, options.required);
     }
 
     // A non-zero exit throws, which fails the gate. Injected like the probe,

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { physicalPath, resolveTarget, MAX_LINKS } = require("../../../src/core/resolve.js");
+const { physicalPath, resolveTarget, validateDirectory, MAX_LINKS } = require("../../../src/core/resolve.js");
 const { fixture } = require("../../helpers.cjs");
 
 /*
@@ -191,4 +191,27 @@ test("a link is read before the budget is spent on it", () => {
     });
 
     assert.throws(() => resolveTarget("/a0", io), (error) => error === failure);
+});
+
+test("the validated destination is a physical directory with searchable original spelling", () => {
+    const entries = { "/work/alias": { kind: "alias" }, "/work/link": link("folder"), "/work/folder": directory };
+    const io = fixture(entries);
+
+    validateDirectory("/work/link", io);
+    assert.deepEqual(io.events.at(-1), ["validate", "/work/link"]);
+    assert.throws(() => validateDirectory("/work/alias", io),
+        { kind: "destinationGone", params: { path: "/work/alias" } });
+    assert.equal(io.events.some(([name]) => name === "resolveAlias"), false);
+    assert.throws(() => validateDirectory("/work/link", fixture(entries, { canEnter: () => false })),
+        { kind: "destinationNotEnterable", params: { path: "/work/link" } });
+});
+
+test("validating a destination gives its physical walk the full link budget", () => {
+    const entries = Object.fromEntries(Array.from({ length: 41 }, (_unused, index) =>
+        [`/work/link${index}`, link(index === 40 ? "folder" : `link${index + 1}`)]));
+    const io = fixture({ ...entries, "/work/folder": directory });
+
+    assert.doesNotThrow(() => validateDirectory("/work/link1", io));
+    assert.throws(() => validateDirectory("/work/link0", io),
+        { kind: "tooManyLinks", params: { path: "/work/link0" } });
 });

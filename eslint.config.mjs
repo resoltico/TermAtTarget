@@ -95,7 +95,7 @@ export default [
         languageOptions: {
             ecmaVersion: "latest",
             sourceType: "module",
-            globals: { ...nodeGlobals, Buffer: "readonly" }
+            globals: { ...nodeGlobals, AbortController: "readonly", Buffer: "readonly" }
         },
         rules: {
             "no-console": "off",

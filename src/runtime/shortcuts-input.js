@@ -1,5 +1,7 @@
 "use strict";
 
+const { refuse } = require("../core/outcomes.js");
+
 /*
  * What run() was handed, as the items that were selected.
  *
@@ -45,4 +47,19 @@ function selectionOf(input) {
     return input[0];
 }
 
-module.exports = { selectionOf };
+function readSelection(input, files) {
+    const selection = selectionOf(input);
+
+    if (selection === null || selection === undefined) {
+        return null;
+    }
+
+    const items = Array.isArray(selection) ? selection : [selection];
+    if (items.length > 1) {
+        throw refuse("multipleSelection");
+    }
+
+    return items.length === 0 ? null : files.pathOf(items[0]);
+}
+
+module.exports = { selectionOf, readSelection };

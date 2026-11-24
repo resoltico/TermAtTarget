@@ -143,3 +143,17 @@ test("folder and alias values remain available without any installed terminal ap
     edit(io);
     assert.deepEqual(io.events.filter(([name]) => name === "save"), [["save", "folder", "parent"], ["save", "link", "stay"]]);
 });
+
+test("a terminal that disappears while the value picker is open is refused before saving", () => {
+    let installed = true;
+    const io = picking([["terminal", "kitty"]], {
+        isInstalled: (id) => id !== "kitty" || installed,
+        pickValue() {
+            installed = false;
+            return "kitty";
+        }
+    });
+
+    assert.throws(() => edit(io), { kind: "terminalMissing", params: { terminal: "kitty" } });
+    assert.equal(calls(io).includes("save"), false);
+});

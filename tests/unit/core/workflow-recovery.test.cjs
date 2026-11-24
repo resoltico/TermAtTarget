@@ -28,21 +28,22 @@ function kittyRefusal(io, input, usable) {
 }
 
 test("a kitty run can suggest the parent only after an offered and usable alternative", () => {
-    kittyRefusal(kitty({}), [UNSAFE], true);
+    kittyRefusal(kitty({}), UNSAFE, true);
     kittyRefusal(kitty({}, {
-        validateDirectory(path) {
+        canEnter(path) {
             if (path === "/work") {
                 throw fault("native", { ...native(path), code: 257 });
             }
+            return true;
         }
-    }), [UNSAFE], false);
+    }), UNSAFE, false);
 });
 
 test("kitty file, chooser and fixed folder policies never offer a parent remedy", () => {
-    kittyRefusal(kitty({ [`${UNSAFE}/file`]: { kind: "file" } }), [`${UNSAFE}/file`], false);
-    kittyRefusal(kitty({}, { chooseFolder: () => UNSAFE }), [], false);
-    kittyRefusal(kitty({}, {}, "inside"), [UNSAFE], false);
-    kittyRefusal(kitty({ [`${UNSAFE}/child`]: { kind: "directory" } }, {}, "parent"), [`${UNSAFE}/child`], false);
+    kittyRefusal(kitty({ [`${UNSAFE}/file`]: { kind: "file" } }), `${UNSAFE}/file`, false);
+    kittyRefusal(kitty({}, { chooseFolder: () => UNSAFE }), null, false);
+    kittyRefusal(kitty({}, {}, "inside"), UNSAFE, false);
+    kittyRefusal(kitty({ [`${UNSAFE}/child`]: { kind: "directory" } }, {}, "parent"), `${UNSAFE}/child`, false);
 });
 
 test("a broken alias offers a rerun choice only when the alias question was asked", () => {
@@ -51,7 +52,7 @@ test("a broken alias offers a rerun choice only when the alias question was aske
         const io = fixture({ [ALIAS]: { kind: "alias" } }, {
             resolveAlias() { throw fault("aliasUnresolved", details); }
         }, { link: policy });
-        const result = execute([ALIAS], hostFor(io));
+        const result = execute(ALIAS, hostFor(io));
 
         if (policy === "stay") {
             assert.deepEqual(result, { kind: "opened", terminal: "terminal", path: "/work" });
@@ -83,7 +84,7 @@ function missingTargetIO(policy) {
 test("a missing selection is refused with the received path and native details", () => {
     const io = missingSelectionIO(fault("fileMissing", native(NO_TARGET)));
 
-    assertRefused(execute([NO_TARGET], hostFor(io)), "selectionMissing", { path: NO_TARGET, native: native(NO_TARGET) });
+    assertRefused(execute(NO_TARGET, hostFor(io)), "selectionMissing", { path: NO_TARGET, native: native(NO_TARGET) });
     assert.equal(calls(io).includes("launch"), false);
 });
 
@@ -91,7 +92,7 @@ test("following a dangling link identifies the link and failing target", () => {
     for (const [input, policy, stayOffered] of [[LINK, "ask", true], [LINK, "follow", false], [`${LINK}/`, "ask", false]]) {
         const io = missingTargetIO(policy);
 
-        assertRefused(execute([input], hostFor(io)), "linkTargetMissing", { path: LINK, native: native(NO_TARGET), stayOffered });
+        assertRefused(execute(input, hostFor(io)), "linkTargetMissing", { path: LINK, native: native(NO_TARGET), stayOffered });
         assert.equal(calls(io).includes("launch"), false);
     }
 });
@@ -102,13 +103,15 @@ test("a folder that vanishes after it is offered is refused as a missing destina
             delete io.items["/work"];
             return question.usual;
         },
-        validateDirectory(path) {
-            assert.equal(io.items[path], undefined);
-            throw fault("fileMissing", native(path));
+        inspect(path) {
+            if (io.items[path] === undefined) {
+                throw fault("fileMissing", native(path));
+            }
+            return io.items[path];
         }
     });
 
-    assertRefused(execute(["/work"], hostFor(io)), "destinationMissing", { path: "/work", native: native("/work") });
+    assertRefused(execute("/work", hostFor(io)), "destinationMissing", { path: "/work", native: native("/work") });
     assert.equal(calls(io).includes("launch"), false);
 });
 
@@ -117,7 +120,7 @@ test("permission and unexpected native failures propagate without a terminal req
         const error = fault("native", { ...native(NO_TARGET), domain, code });
         const io = missingSelectionIO(error);
 
-        assert.throws(() => execute([NO_TARGET], hostFor(io)), (caught) => caught === error);
+        assert.throws(() => execute(NO_TARGET, hostFor(io)), (caught) => caught === error);
         assert.equal(calls(io).includes("launch"), false);
     }
 });
@@ -133,7 +136,7 @@ test("a permission fault or an unexpected error during link following keeps its 
             readLink() { throw error; }
         });
 
-        assert.throws(() => execute([LINK], hostFor(io)), (caught) => caught === error);
+        assert.throws(() => execute(LINK, hostFor(io)), (caught) => caught === error);
         assert.equal(calls(io).includes("launch"), false);
     }
 });

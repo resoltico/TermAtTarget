@@ -15,18 +15,18 @@ const PRIVATE_FOLDER = 0o700;
 const UNSEARCHABLE_FOLDER = 0o600;
 
 export async function prepareFixtures(temp) {
-    for (const name of ["folder", "elsewhere/deep", "elsewhere/goal", "Demo.app/Contents", HOSTILE, "locked"]) {
+    for (const name of ["folder", "elsewhere/deep", "elsewhere/goal", "physical%20", "Demo.app/Contents", HOSTILE, "locked"]) {
         await mkdir(path.join(temp, name), { recursive: true });
     }
 
-    for (const name of ["file.txt", "doomed.txt", "folder/child.txt", "locked/child.txt", `${HOSTILE}/item.txt`]) {
+    for (const name of ["file.txt", "doomed.txt", "folder/child.txt", "physical%20/child.txt", "locked/child.txt", `${HOSTILE}/item.txt`]) {
         await writeFile(path.join(temp, name), "fixture\n");
     }
 
     await writeFile(path.join(temp, "Demo.app/Contents/Info.plist"), INFO_PLIST);
 
     for (const [target, name] of [["folder", "relative-link"], ["missing", "broken-link"], ["cycle", "cycle"],
-        ["elsewhere/deep", "shortcut"], ["shortcut/../goal", "ordered-link"]]) {
+        ["physical%20", "lexical%2F"], ["elsewhere/deep", "shortcut"], ["shortcut/../goal", "ordered-link"]]) {
         await symlink(target, path.join(temp, name));
     }
 

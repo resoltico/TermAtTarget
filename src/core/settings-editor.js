@@ -3,6 +3,10 @@
 const { refuse, fault } = require("./outcomes.js");
 const { SETTINGS, KEYS, knownSetting } = require("./settings.js");
 
+function available(key, value, terminals) {
+    return !SETTINGS[key].requiresInstalled || terminals.isInstalled(value);
+}
+
 /*
  * Changing the settings, one at a time, until the person is done.
  *
@@ -18,9 +22,7 @@ const { SETTINGS, KEYS, knownSetting } = require("./settings.js");
 function rowsOf(saved, terminals) {
     return KEYS.map((key) => {
         const value = knownSetting(key, saved[key]);
-        const available = !SETTINGS[key].requiresInstalled || value === null || terminals.isInstalled(value);
-
-        return { key, value, saved: saved[key], available };
+        return { key, value, saved: saved[key], available: value === null || available(key, value, terminals) };
     });
 }
 
@@ -38,6 +40,16 @@ function valuesFor(key, terminals) {
     return installed;
 }
 
+function assertAcceptable(key, value, values, terminals) {
+    if (!values.includes(value)) {
+        throw fault("invalidAnswer", { question: "settingValue" });
+    }
+
+    if (!available(key, value, terminals)) {
+        throw refuse("terminalMissing", { terminal: value });
+    }
+}
+
 // One setting changed and saved, or left as it was when the person backs out.
 function change(key, current, ports) {
     if (!KEYS.includes(key)) {
@@ -51,9 +63,7 @@ function change(key, current, ports) {
         return;
     }
 
-    if (!values.includes(value)) {
-        throw fault("invalidAnswer", { question: "settingValue" });
-    }
+    assertAcceptable(key, value, values, ports.terminals);
 
     ports.preferences.save(key, value);
     current[key] = value;

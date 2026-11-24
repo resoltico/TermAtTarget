@@ -12,13 +12,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1; reference project pin
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0; reference project pin
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm install --global "$(node --print 'require("./package.json").packageManager')"
+      - run: npm ci --ignore-scripts
+      - run: bash tools/install-actionlint.sh
+      - run: npm run quality
+
   qualify:
     runs-on: macos-15
     timeout-minutes: 15
     env:
       RELEASE_TAG: ${{ github.ref_name }}
-      HOMEBREW_NO_AUTO_UPDATE: "1"
-      HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,13 +43,12 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-      - run: brew install actionlint
       - run: npm install --global "$(node --print 'require("./package.json").packageManager')"
       - run: npm ci --ignore-scripts
       - run: node tools/release-notes.mjs "$RELEASE_TAG" > "$RUNNER_TEMP/release-notes.md"
-      - run: npm run quality
       - run: npm run build
       - run: npm run test:integration:macos
+      - run: node tools/verify-native.mjs reports/native-macos.json dist/Term-At-Target.jxa "$GITHUB_SHA"
       - run: npm run package
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -74,7 +88,7 @@ jobs:
           cmp dist/SHA256SUMS qualified/dist/SHA256SUMS
 
   publish:
-    needs: [qualify, reproduce]
+    needs: [source-quality, qualify, reproduce]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -100,6 +114,7 @@ jobs:
         run: |
           (cd release-files/dist && sha256sum --check SHA256SUMS)
           (cd release-files/artifacts && sha256sum --check -- ./*.sha256)
+          node tools/verify-native.mjs release-files/reports/native-macos.json release-files/dist/Term-At-Target.jxa "$GITHUB_SHA"
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |

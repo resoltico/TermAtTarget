@@ -8,6 +8,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const { readSelection } = require("../../../src/runtime/shortcuts-input.js");
 const { selectionOf } = require("../../../src/runtime/shortcuts-input.js");
 
 // JXA Path objects: String() is the path, and nothing else is readable.
@@ -82,4 +83,20 @@ test("a flat list whose items only resemble the envelope is taken as it is", () 
     const reversed = [options(), [path("/a")]];
 
     assert.equal(selectionOf(reversed), reversed);
+});
+
+test("only one received item reaches the path adapter", () => {
+    const item = {};
+    const seen = [];
+    const files = { pathOf(value) { seen.push(value); return "/work"; } };
+
+    for (const empty of [null, undefined, [], [[], { source: "", ignoresInput: false }]]) {
+        assert.equal(readSelection(empty, files), null);
+    }
+
+    assert.throws(() => readSelection([item, item], files), { kind: "multipleSelection", params: {} });
+    assert.deepEqual(seen, []);
+    assert.equal(readSelection(item, files), "/work");
+    assert.equal(readSelection([item], files), "/work");
+    assert.deepEqual(seen, [item, item]);
 });

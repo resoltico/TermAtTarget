@@ -1,44 +1,58 @@
-/*
- * The saved settings against real macOS preferences, in a domain of the
- * suite's own that is removed before and after, so a person's own settings
- * are never read or written: saved in one osascript process, read back in
- * another after the first has ended, and read by `defaults` as well -- and a
- * `terminal` planted in osascript's own domain is never read as one of them.
- */
-import { spawnSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
-const PREFERENCES_DOMAIN = "com.resoltico.TermAtTarget.native-test";
-
-function forgetPreferences() {
-    spawnSync("/usr/bin/defaults", ["delete", PREFERENCES_DOMAIN], { stdio: "ignore" });
-}
-
-// What the suite's domain holds after a save, read three ways.
-function readBack(invoke) {
-    return {
-        saved: invoke("preferences", PREFERENCES_DOMAIN, "save"),
-        loaded: invoke("preferences", PREFERENCES_DOMAIN, "load"),
-        read: execFileSync("/usr/bin/defaults", ["read", PREFERENCES_DOMAIN, "folder"], { encoding: "utf8" }).trim()
-    };
-}
-
-// Saved in one process, read back in another and by `defaults`, then removed.
 export function checkPreferences(invoke) {
-    const expected = JSON.stringify({ terminal: null, folder: "parent", link: 3 });
-
-    forgetPreferences();
+    const domain = `com.resoltico.TermAtTarget.native-test.${randomUUID()}`;
+    const first = { terminal: null, folder: "parent", link: 3 };
+    const both = { ...first, terminal: "kitty" };
 
     try {
-        const found = readBack(invoke);
+        const found = [
+            invoke("preferences", domain, "folder"),
+            invoke("preferences", domain, "terminal"),
+            invoke("preferences", domain, "load"),
+            execFileSync("/usr/bin/defaults", ["read", domain, "folder"], { encoding: "utf8" }).trim()
+        ];
 
-        if (JSON.stringify(found.saved) !== expected || JSON.stringify(found.loaded) !== expected || found.read !== "parent") {
-            throw new Error(`Saved settings did not read back: ${JSON.stringify(found)}`);
+        if (!isDeepStrictEqual(found, [first, both, both, "parent"])) {
+            throw new Error(`Separate settings edits did not read back: ${JSON.stringify(found)}`);
         }
     } finally {
-        forgetPreferences();
+        execFileSync("/usr/bin/defaults", ["delete", domain], { stdio: "ignore" });
     }
 
-    console.log("PASS: a saved setting outlives its process and is what `defaults` reads.");
+    console.log("PASS: separate settings edits preserve both keys and are visible in a later process.");
+    return true;
+}
+
+async function writeConcurrently(invokeWriter, domain, barrier) {
+    const writes = await Promise.allSettled(["overlap-folder", "overlap-terminal"]
+        .map((step) => invokeWriter(domain, step, barrier)));
+
+    for (const result of writes) {
+        if (result.status === "rejected") {
+            throw result.reason;
+        }
+    }
+}
+
+export async function checkOverlappingPreferences(invoke, invokeWriter, directory) {
+    const domain = `com.resoltico.TermAtTarget.native-overlap.${randomUUID()}`;
+    const barrier = path.join(directory, "settings-writers");
+    await mkdir(barrier);
+
+    try {
+        await writeConcurrently(invokeWriter, domain, barrier);
+        const values = invoke("preferences", domain, "load");
+        if (!isDeepStrictEqual(values, { terminal: "kitty", folder: "parent", link: null })) {
+            throw new Error(`Overlapping settings edits lost a key: ${JSON.stringify(values)}`);
+        }
+    } finally {
+        execFileSync("/usr/bin/defaults", ["delete", domain], { stdio: "ignore" });
+    }
 
     return true;
 }

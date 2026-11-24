@@ -1,6 +1,5 @@
 "use strict";
 
-const { absolutePath } = require("../core/paths.js");
 const { refuse, NATIVE_OPERATIONS } = require("../core/outcomes.js");
 const { isNil } = require("./bridge.js");
 const { OPEN, TERMINAL_BUNDLES } = require("./executables.js");
@@ -33,30 +32,29 @@ function isInstalled(bridge, id) {
     return !isNil(url);
 }
 
-function launch(bridge, files, id, path) {
-    const directory = absolutePath(path);
+function launch(bridge, files, { terminal, path }) {
     const ran = supervise(bridge, files, {
         executable: OPEN,
-        arguments: ["-b", TERMINAL_BUNDLES[id], directory],
+        arguments: ["-b", TERMINAL_BUNDLES[terminal], path],
         operation: NATIVE_OPERATIONS.LAUNCH,
-        subject: directory
+        subject: path
     });
 
     if (!ran.finished) {
         throw refuse("launchUnconfirmed", {
-            terminal: id, path: directory, cause: ran.lost, stopped: ran.stopped, pid: ran.pid, cleanup: ran.cleanup
+            terminal, path, cause: ran.lost, stopped: ran.stopped, pid: ran.pid, cleanup: ran.cleanup
         });
     }
 
     if (ran.status !== 0) {
-        throw refuse("launchFailed", { terminal: id, path: directory, status: ran.status });
+        throw refuse("launchFailed", { terminal, path, status: ran.status });
     }
 }
 
 function createTerminalApps(bridge, files) {
     return {
         isInstalled: (id) => isInstalled(bridge, id),
-        launch: (id, path) => launch(bridge, files, id, path)
+        launch: (request) => launch(bridge, files, request)
     };
 }
 

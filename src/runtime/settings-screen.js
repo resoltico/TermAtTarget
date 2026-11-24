@@ -1,29 +1,12 @@
 "use strict";
 
-const { SOURCE_LOCALE, render } = require("../core/messages.js");
-const { formatSaved, settingLabel, valueLabel } = require("../core/settings.js");
+const { SOURCE_LOCALE } = require("../core/messages.js");
+const { rowLabel, settingLabel, settingPrompt, valueLabel } = require("../core/settings.js");
 const { pick } = require("./standard-additions.js");
 
 const TITLE = "Term At Target Settings";
-const PROMPTS = {
-    terminal: "Open folders in:",
-    folder: "When a folder is selected:",
-    link: "When a Finder alias is selected:"
-};
-
-function rowLabel({ key, value, saved, available }) {
-    const label = settingLabel(SOURCE_LOCALE, key);
-
-    if (value === null) {
-        return render(SOURCE_LOCALE, "settings.unrecognised", { label, value: formatSaved(saved, SOURCE_LOCALE) });
-    }
-
-    const id = available ? "settings.row" : "settings.notInstalled";
-    return render(SOURCE_LOCALE, id, { label, value: valueLabel(SOURCE_LOCALE, key, value) });
-}
-
 function pickSetting(app, rows, focus) {
-    const items = rows.map(rowLabel);
+    const items = rows.map((row) => rowLabel(SOURCE_LOCALE, row));
     const selected = rows.findIndex((row) => row.key === focus);
     const answer = pick(app, items, {
         withTitle: TITLE,
@@ -40,7 +23,7 @@ function pickValue(app, key, values, current) {
     const items = values.map((value) => valueLabel(SOURCE_LOCALE, key, value));
     const answer = pick(app, items, {
         withTitle: settingLabel(SOURCE_LOCALE, key),
-        withPrompt: PROMPTS[key],
+        withPrompt: settingPrompt(SOURCE_LOCALE, key),
         defaultItems: values.includes(current) ? [valueLabel(SOURCE_LOCALE, key, current)] : [],
         okButtonName: "Use",
         cancelButtonName: "Back"

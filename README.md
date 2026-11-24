@@ -9,22 +9,23 @@ Source and releases at https://github.com/resoltico/TermAtTarget
 
 ## Install
 
-On macOS 12.3 or later, download `Term-At-Target.jxa` and `INSTALL.txt` from
-the [latest release](https://github.com/resoltico/TermAtTarget/releases/latest).
-Follow [INSTALL.txt](INSTALL.txt) to verify the download and paste the script
-into **Run JavaScript for Mac Automation** in a Shortcuts Quick Action.
-Set the Quick Action to receive **Files** from Finder and give the action
-**Shortcut Input** directly. You can also build the script from a development
-checkout. [Building from source](CONTRIBUTING.md)
+Term At Target targets macOS 12.3 or later. Download `Term-At-Target.jxa`,
+`SHA256SUMS` and `INSTALL.txt` from the
+[latest release](https://github.com/resoltico/TermAtTarget/releases/latest).
+The installation guide covers verification, Finder integration and
+shortcut input. [Installation guide](INSTALL.txt)
+
+You can also build the script from a development checkout.
+[Building from source](CONTRIBUTING.md) · [Verification scope](QA.md#verification-limits)
 
 ## Comparison
 
-| Option | Finder setup | Apps and destination choices |
-| --- | --- | --- |
-| Term At Target | Paste a script into a Shortcuts Quick Action | Terminal, Ghostty, iTerm2 or kitty. Open inside a folder or at its parent, open a file's containing folder, or decide how to handle an alias. |
-| [Apple's Terminal commands](https://support.apple.com/en-qa/guide/terminal/trmlb20c7888/2.15/mac/27) | Use Finder's built-in path bar menu | Apple Terminal. Open a window or tab at a folder in Finder's path bar. |
-| [OpenInTerminal](https://github.com/Ji4n1ng/OpenInTerminal) | Install the app and configure Finder integration | Open selected folders or files in supported terminals, editors or other configured apps. Terminal choices include iTerm, Ghostty, kitty, WezTerm, Warp and others. |
-| [cdto](https://github.com/jbtule/cdto) | Install the app and add it to the Finder toolbar | Open a Terminal window at a Finder directory. |
+| Option | Finder setup | Supported apps | How it chooses the location |
+| --- | --- | --- | --- |
+| Term At Target | Paste the script into a Shortcuts Quick Action | Terminal, Ghostty, iTerm2 and kitty | Open inside a folder or at its parent, use a file's containing folder, or choose how to handle a Finder alias. With no input, choose a folder or open Settings. |
+| [Apple's Terminal commands](https://support.apple.com/en-ca/guide/terminal/trmlb20c7888/mac) | Use Finder's built-in path bar menu | Terminal | Control-click a folder in the path bar to open a window or tab at that folder. |
+| [OpenInTerminal](https://github.com/Ji4n1ng/OpenInTerminal) | Install the app and configure its [Finder integration](https://github.com/Ji4n1ng/OpenInTerminal/blob/master/Resources/README-Config.md) | Terminal apps including iTerm2, Ghostty, kitty, WezTerm, Warp and cmux, plus editors and compatible custom apps | Open the current Finder directory in a terminal or send selected files or folders to a supported app. |
+| [cdto](https://github.com/jbtule/cdto/releases/latest) | Add the app to the Finder toolbar | Terminal | Click the toolbar button to open a Terminal window at a Finder directory. |
 
 ## What opens where
 
@@ -38,7 +39,7 @@ checkout. [Building from source](CONTRIBUTING.md)
 | Followed target is a folder | Applies the folder policy to the target. |
 | Followed target is a file | Opens the directory containing the target. |
 | Multiple items | Shows the single-selection requirement and opens nothing. |
-| Typed path ending in `/` | Requires the path to name a folder. A symbolic link with that spelling must lead to a folder even when the configured choice is to open the link's containing folder. |
+| Path ending in `/` | Requires a directory. A symbolic link with that spelling must lead to a directory even when the configured choice is to open the link's containing folder. |
 | Cancel | Opens nothing. |
 
 The questions show the item's name, the folder it is in and the chosen
@@ -54,7 +55,7 @@ In: ~/Downloads
             Cancel   Open in Parent   Open Inside
 ```
 
-Alerts show full paths and give recovery guidance for a missing selection,
+Path alerts show full paths and give recovery guidance for a missing selection,
 a missing link target or a destination that disappears. Questions and alerts
 escape invisible controls such as line breaks and direction marks using
 forms like `\u{202E}`. Edge spaces remain visible inside quotes, and supported
@@ -67,11 +68,9 @@ still appear. Each terminal app controls its own window and tab behaviour.
 
 ## Settings
 
-Run the shortcut with no input and choose **Settings…**. Choose a setting to
-change, select its value, and choose **Done** to close the list. Each change
-saves immediately. **Get Selected Files in Finder** can supply Finder's
-selection even when you run the shortcut elsewhere, bypassing the start
-prompt. Use **Shortcut Input** as described in the installation instructions.
+Run the shortcut with no input and choose **Settings…**. Choose a setting,
+select its value, and choose **Use** to save it or **Back** to return without
+saving. Choose **Done** to close Settings. [Input setup](INSTALL.txt)
 
 | Setting | Values | Default |
 | --- | --- | --- |
@@ -84,10 +83,9 @@ is unavailable, the settings list marks it "(not installed)". Open a newly
 downloaded app once from Applications before choosing it here. Term At Target
 refuses to hand kitty a path containing `$` because kitty may expand it.
 
-The settings live in the `com.resoltico.TermAtTarget` macOS preferences domain.
-Run `defaults read com.resoltico.TermAtTarget` to inspect the saved values.
-Unrecognised values are identified so you can replace them in Settings.
-The action reads settings from that domain independently of the script.
+Settings identifies unrecognised saved values so you can replace them.
+Run `defaults read com.resoltico.TermAtTarget` to inspect the preference
+domain from Terminal.
 
 ## Path input
 
@@ -98,9 +96,9 @@ separators, malformed Unicode, and direct `.` or `..` components. Relative
 components inside a symbolic-link target follow filesystem semantics.
 
 Shortcuts can supply a link's target, copy an item to a temporary path, or
-discard an unavailable input. The action works with what reaches it. To
-preserve Finder selection identity as far as Shortcuts allows, feed
-**Shortcut Input** directly into the JavaScript action. [Installation and removal](INSTALL.txt)
+discard an unavailable input. The action applies its rules to the item it
+receives. Pass **Shortcut Input** directly into the JavaScript action to
+avoid further conversion. [Installation and removal](INSTALL.txt)
 
 ## License
 

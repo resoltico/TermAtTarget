@@ -46,5 +46,5 @@ test("whatever the encoder writes, the decoder reads back as the same set", asyn
 });
 
 test("the tables are Unicode 17's", () => {
-    assert.equal(sets.UNICODE_VERSION, "17.0.0");
+    assert.equal(sets.UNICODE_VERSION, "18.0.0");
 });

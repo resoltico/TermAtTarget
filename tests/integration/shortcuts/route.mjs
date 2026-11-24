@@ -11,15 +11,12 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { assertInstalled, stage, unstage, runRoute, runRefused } from "./harness.mjs";
+import { assertInstalled, withStagedArtifact, runRoute, runRefused } from "./harness.mjs";
+import { checkAlertMatching } from "./alert.mjs";
 import { shellAt } from "../terminal-cwd.mjs";
 
 async function opensAt(route, items, expected) {
-    const { ran, seen } = await runRoute(route, items);
-
-    if (ran.status !== 0) {
-        throw new Error(`${route}: ${JSON.stringify(items)} failed: ${ran.stderr}${ran.stdout}`);
-    }
+    const { seen } = await runRoute(route, items);
 
     const shell = await shellAt(expected, 15000);
 
@@ -34,12 +31,7 @@ async function opensAt(route, items, expected) {
 
 // Refused in Term At Target's own alert, which then ends the run quietly.
 async function refused(route, items) {
-    const { status, alert, seen } = await runRefused(route, items);
-
-    if (status !== 0 || alert === null || !alert.includes("Select one item at a time") ||
-        !alert.includes("one selected item at a time")) {
-        throw new Error(`${route}: two items were not refused as two: ${status} ${JSON.stringify(alert)}`);
-    }
+    const { alert, seen } = await runRefused(route, items);
 
     return { ...seen, alert };
 }
@@ -75,13 +67,9 @@ async function eachRoute(at) {
     return evidence;
 }
 
-export async function throughShortcuts(temp, production) {
+export function throughShortcuts(temp, production) {
     assertInstalled();
+    checkAlertMatching();
 
-    try {
-        await stage(production);
-        return await eachRoute(await fixtures(temp));
-    } finally {
-        unstage();
-    }
+    return withStagedArtifact(production, async () => eachRoute(await fixtures(temp)));
 }

@@ -57,8 +57,7 @@ function pathText(text) {
     return /^file:/iu.test(text) ? checkPathText(decodeFileURL(text)) : text;
 }
 
-function absolutePath(given) {
-    const text = pathText(given);
+function normalizeAbsolute(text) {
     if (!text.startsWith("/")) {
         throw refuse("pathRelative");
     }
@@ -69,10 +68,14 @@ function absolutePath(given) {
     return `/${components.join("/")}`;
 }
 
+function absolutePath(given) {
+    return normalizeAbsolute(pathText(given));
+}
+
+// Callers already hold a normalized absolute path.
 function parentPath(path) {
-    const normalized = absolutePath(path);
-    const lastSlash = normalized.lastIndexOf("/");
-    return lastSlash <= 0 ? "/" : normalized.slice(0, lastSlash);
+    const lastSlash = path.lastIndexOf("/");
+    return lastSlash <= 0 ? "/" : path.slice(0, lastSlash);
 }
 
 /*
@@ -81,19 +84,9 @@ function parentPath(path) {
  * it knows what the item is. It cannot mean "must be a folder": Foundation
  * spells a URL for a symbolic link to a folder with one too.
  */
-function selectedPath(input, pathOf) {
-    if (input === null || input === undefined) {
-        return null;
-    }
-    const items = Array.isArray(input) ? input : [input];
-    if (items.length === 0) {
-        return null;
-    }
-    if (items.length !== 1) {
-        throw refuse("multipleSelection");
-    }
-    const text = pathText(pathOf(items[0]));
-    const path = absolutePath(text);
+function selectedPath(given) {
+    const text = pathText(given);
+    const path = normalizeAbsolute(text);
     return { path, slashed: path !== "/" && text.endsWith("/") };
 }
 

@@ -3,6 +3,7 @@
 const { selectedPath } = require("./paths.js");
 const { isCancellation, isRefusal, refuse, withMissingFile } = require("./outcomes.js");
 const { askAnswer, startQuestion } = require("./questions.js");
+const { validateDirectory } = require("./resolve.js");
 const { destination } = require("./plan.js");
 const { START, SETUP, terminalApp } = require("./vocabulary.js");
 const { KEYS, knownSetting, settingsFrom } = require("./settings.js");
@@ -56,7 +57,7 @@ function usableParent(path, files) {
     }
 
     try {
-        files.validateDirectory(path);
+        validateDirectory(path, files);
         return true;
     } catch {
         return false;
@@ -78,14 +79,15 @@ function open(selection, saved, host) {
     const plan = destination(selection, settings, host.files, request);
     const { path } = plan;
 
-    withMissingFile(() => host.files.validateDirectory(path), (native) => refuse("destinationMissing", { path, native }));
+    withMissingFile(() => validateDirectory(path, host.files), (native) => refuse("destinationMissing", { path, native }));
     assertLiteral(terminal, plan, host.files);
-    host.terminals.launch(terminal.id, path);
-    return { kind: "opened", terminal: terminal.id, path };
+    const openRequest = { terminal: terminal.id, path };
+    host.terminals.launch(openRequest);
+    return { kind: "opened", ...openRequest };
 }
 
-function runSelection(input, host) {
-    const selection = selectedPath(input, (value) => host.files.pathOf(value));
+function runSelection(text, host) {
+    const selection = text === null ? null : selectedPath(text);
     const saved = host.preferences.load();
 
     if (selection === null && wantsSettings(saved, host)) {

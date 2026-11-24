@@ -1,6 +1,6 @@
 /*
  * Renders src/core/unicode-tables.js from the Unicode data files in
- * tools/unicode/data/, which are Unicode 17.0.0's, unmodified.
+ * tools/unicode/data/, which are Unicode 18.0.0's, unmodified.
  * tools/unicode/generate.mjs writes it; the gate compares against it.
  *
  * Each table is a set of code points, written as ranges: the gap from the end
@@ -14,7 +14,7 @@ import { encodeRanges } from "./ranges.mjs";
 
 const DATA = path.join(root, "tools/unicode/data");
 const TARGET = path.join(root, "src/core/unicode-tables.js");
-const VERSION = "17.0.0";
+const VERSION = "18.0.0";
 const LINE_WIDTH = 180;
 const HEX = 16;
 

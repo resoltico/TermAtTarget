@@ -37,15 +37,21 @@ function nativeText(bridge, value) {
  * turns it into the path of that object first. Only a reference is converted:
  * a path URL is taken as spelled, so a link stays the link that was selected.
  */
-function nativeURLText(objc, url) {
+function nativeURLText(objc, url, validatedReference) {
     if (!url.isFileURL) {
         throw refuse("pathNotLocalURL");
     }
 
-    // Foundation may repair malformed escapes while resolving a reference.
-    absolutePath(String(objc.unwrap(url.absoluteString)));
+    if (!url.isFileReferenceURL) {
+        return String(objc.unwrap(url.absoluteString));
+    }
 
-    const pathURL = url.isFileReferenceURL ? url.filePathURL : url;
+    // Foundation may repair malformed escapes while resolving a reference.
+    if (!validatedReference) {
+        absolutePath(String(objc.unwrap(url.absoluteString)));
+    }
+
+    const pathURL = url.filePathURL;
 
     if (isNil(pathURL)) {
         throw refuse("itemGone");
@@ -68,7 +74,7 @@ function nativeURLOrNothing(bridge, value) {
         return null;
     }
 
-    return nativeURLText(bridge.objc, value);
+    return nativeURLText(bridge.objc, value, false);
 }
 
 // Apple's documented Path conversion, accepted only when it looks like a path.
@@ -103,7 +109,7 @@ function referenceResolved(bridge, text) {
         throw refuse("itemGone");
     }
 
-    return nativeURLText(bridge.objc, url);
+    return nativeURLText(bridge.objc, url, true);
 }
 
 /*

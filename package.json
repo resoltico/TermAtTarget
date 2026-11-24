@@ -1,6 +1,6 @@
 {
   "name": "term-at-target-macos",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "description": "A dependency-free JXA Shortcuts action that opens a terminal app at a deliberate filesystem location",
   "license": "AGPL-3.0-only",
@@ -38,8 +38,19 @@
     "acorn": "8.19.0",
     "esbuild": "0.28.2",
     "eslint": "10.15.0",
-    "fast-check": "4.10.3"
+    "fast-check": "4.11.0"
   },
   "copyright": "2026 Ervins Strauhmanis",
-  "packageManager": "npm@12.2.3"
+  "packageManager": "npm@12.2.3",
+  "overrides": {
+    "@stryker-mutator/core": {
+      "minimatch": "11.0.9",
+      "typed-rest-client": {
+        "qs": "6.17.1"
+      }
+    },
+    "@stryker-mutator/tap-runner": {
+      "glob": "14.0.6"
+    }
+  }
 }

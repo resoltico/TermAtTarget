@@ -1,9 +1,7 @@
 "use strict";
 
 const { refuse, fault, NATIVE_OPERATIONS } = require("../core/outcomes.js");
-const { physicalPath } = require("../core/resolve.js");
 const { isNil, fileManager, nativeFailure, filesystemFailure, isCocoaError } = require("./bridge.js");
-const { inspect } = require("./attributes.js");
 
 /*
  * Where Finder aliases and symbolic links point, and whether a destination is
@@ -56,25 +54,8 @@ function readLink(bridge, path) {
     return String(bridge.objc.unwrap(value));
 }
 
-/*
- * A file's containing directory may itself be a symbolic link -- /tmp is one.
- * Its physical target is validated, but the chosen spelling is what Terminal
- * is given. This is not an implicit Finder-alias resolution.
- */
-function validateDirectory(bridge, path) {
-    const io = {
-        inspect: (candidate) => inspect(bridge, candidate),
-        readLink: (candidate) => readLink(bridge, candidate)
-    };
-    const physical = physicalPath(path, io, { links: 0 });
-
-    if (io.inspect(physical).kind !== "directory") {
-        throw refuse("destinationGone", { path });
-    }
-
-    if (!fileManager(bridge).isExecutableFileAtPath(path)) {
-        throw refuse("destinationNotEnterable", { path });
-    }
+function canEnter(bridge, path) {
+    return fileManager(bridge).isExecutableFileAtPath(path);
 }
 
-module.exports = { resolveAlias, readLink, validateDirectory };
+module.exports = { resolveAlias, readLink, canEnter };

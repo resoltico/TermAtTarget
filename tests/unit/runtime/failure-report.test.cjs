@@ -2,7 +2,8 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { createFailureReport, failureReport } = require("../../../src/runtime/failure-report.js");
+const { createFailureReport } = require("../../../src/runtime/failure-report.js");
+const { failureReport } = require("../../../src/core/failure-report.js");
 const { REFUSALS, FAULTS, NATIVE_OPERATIONS, refuse, fault } = require("../../../src/core/outcomes.js");
 const { CATALOG, SOURCE_LOCALE } = require("../../../src/core/messages.js");
 
@@ -124,8 +125,8 @@ test("every declared outcome has words and every catalog entry has a consumer", 
         "folder.question", "folder.folder", "folder.package", "folder.via.alias", "folder.via.symlink", "link.alias", "link.symlink",
         ...["settings", "choose", "inside", "parent", "stay", "follow.alias", "follow.symlink"].map((name) => `answer.${name}.action`),
         ...["inside", "parent", "stay", "follow", "ask"].map((name) => `answer.${name}.option`),
-        ...["terminal", "folder", "link"].map((name) => `settings.${name}.label`),
-        "settings.row", "settings.unrecognised", "settings.notInstalled",
+        ...["terminal", "folder", "link"].flatMap((name) => [`settings.${name}.label`, `settings.${name}.prompt`]),
+        "failure.heading", "settings.changeHint", "settings.row", "settings.unrecognised", "settings.notInstalled",
         ...["deadline", "lost", "unstopped", "pid", "cleanup"].map((name) => `launchUnconfirmed.${name}`),
         ...Object.values(NATIVE_OPERATIONS).map((operation) => `native.${operation}.message`)
     ];

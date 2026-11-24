@@ -14,9 +14,11 @@ input. Check the input path on the actual host when diagnosing selection
 problems. [Direct-input setup](INSTALL.txt)
 
 The action checks the final directory before handing it to the terminal app.
-When an alias is followed, macOS receives the without-UI and without-mounting
-options. Opening the folder containing an alias avoids resolving its target.
-Operations on an already mounted filesystem can still block.
+The path can retain its selected spelling even when validation traverses a
+symbolic link. When the action follows a Finder alias, it asks macOS to
+resolve it without UI and without mounting volumes. Opening the folder
+containing an alias avoids resolving its target. Operations on an already
+mounted filesystem can still block.
 
 Questions and alerts display paths using the escaping rules in
 `src/core/present.js`. Alerts keep the full path and visibly escape controls
@@ -44,15 +46,16 @@ for a selected location when it is needed.
 ## Local state
 
 The preferences domain documented in [INSTALL.txt](INSTALL.txt) is the
-action's only persistent state. The source gate rejects filesystem writes
-and confines NSUserDefaults to `src/runtime/preferences.js`. Each run reads
-settings once and manages its own request.
+action's only persistent state. The source gate flags known filesystem-writing
+call names and confines direct NSUserDefaults references to
+`src/runtime/preferences.js`. Each run reads settings once and handles
+its own request. Saving a setting writes its key individually.
 
 ## Provenance
 
-For a downloaded script, check the SHA-256 manifest for byte integrity and
-verify the GitHub build attestation against the project repository. A local
-build has a checksum manifest. [Verification commands](INSTALL.txt)
+For a release script, check the SHA-256 manifest for byte integrity and
+verify the GitHub build attestation against the project repository. Both the
+download and a local build include a checksum manifest. [Verification commands](INSTALL.txt)
 
 ## Reporting
 

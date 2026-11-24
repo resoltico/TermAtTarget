@@ -42,12 +42,12 @@ test("an object that throws when probed is read by its documented conversion", (
     // Asking an arbitrary JXA object about a class can throw, and so can
     // unwrapping one. Neither is a reason to refuse what it converts to.
     const { bridge } = fakeFoundation();
-    const probeThrows = {
-        get isKindOfClass() {
+    // Keep the native property probe out of TAP's assertion serialization.
+    const probeThrows = Object.defineProperty({ toString: () => "/safe" }, "isKindOfClass", {
+        get() {
             throw new Error("JXA property probe");
-        },
-        toString: () => "/safe"
-    };
+        }
+    });
 
     assert.equal(pathOf(bridge, probeThrows), "/safe");
 });
@@ -164,9 +164,14 @@ test("a file-reference URL written as text goes through Foundation too", () => {
 
     bridge.ns.NSURL.URLWithString = (text) => {
         asked.push(text);
-        return fileURL(bridge.ns, {
+        const reference = fileURL(bridge.ns, {
             isFileReferenceURL: true,
             filePathURL: { isNil: () => false, absoluteString: box("file:///work/real.txt") }
+        });
+        return Object.defineProperty(reference, "absoluteString", {
+            get() {
+                throw new Error("The original text was validated before Foundation was called.");
+            }
         });
     };
 

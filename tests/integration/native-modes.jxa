@@ -7,9 +7,10 @@ function superviseMode(bridge, files, base) {
     "use strict";
     const supervise = __TermAtTarget.supervise;
     const ran = function (script) {
-        const started = Date.now();
+        // Match the production deadline's monotonic time basis.
+        const started = bridge.now();
         const result = supervise(bridge, files, { executable: "/bin/sh", arguments: ["-c", script], operation: "launch", subject: "/bin/sh" });
-        result.seconds = (Date.now() - started) / 1000;
+        result.seconds = bridge.now() - started;
         return result;
     };
     let unstartable = null;
@@ -47,7 +48,7 @@ function dialogsMode(host, base) {
     const ports = Object.assign({}, host, questions, {
         preferences: { load: function () { return { terminal: null, folder: null, link: null }; } }
     });
-    const askInRun = function (input) { return __TermAtTarget.execute(input, ports); };
+    const askInRun = function (input) { return __TermAtTarget.execute(__TermAtTarget.readSelection(input, ports.files), ports); };
     const refusal = function (ask) {
         try { ask(); } catch (error) { return error.kind || String(error.message); }
         return null;
@@ -60,29 +61,47 @@ function dialogsMode(host, base) {
     };
 }
 
-/* The saved settings, in a preferences domain the suite owns and removes, so
- * a person's own are never read or written. "save" writes one value the way
- * the action does and one number the way `defaults -int` would, and plants a
- * `terminal` in osascript's own domain, which a named domain's lookup would
- * also read; then reads back. "load" reads them in a later process, after the
- * saving one has ended, so a value that never left its process fails, and
- * removes the planted value (only if it is still the marker).
+/* Each invocation uses a separate process and a project-owned test domain.
+ * A volatile registration also checks that a fallback is not read as saved.
  */
-function preferencesMode(bridge, domain, step) {
+function overlappingSave(bridge, preferences, step, directory) {
+    const folder = step === "overlap-folder";
+    const key = folder ? "folder" : "terminal";
+    const peer = folder ? "terminal" : "folder";
+    const ready = directory + "/" + key;
+    const other = directory + "/" + peer;
+    const files = $.NSFileManager.defaultManager;
+    const limit = bridge.now() + 10;
+
+    // Both writers read the initial record before either writes its key.
+    preferences.load();
+    if (!$("ready").writeToFileAtomicallyEncodingError(ready, true, $.NSUTF8StringEncoding, $())) {
+        throw new Error("Could not coordinate the preferences writers.");
+    }
+    while (!files.fileExistsAtPath(other)) {
+        if (bridge.now() > limit) {
+            throw new Error("The other preferences writer did not reach the barrier.");
+        }
+        $.NSThread.sleepForTimeInterval(0.01);
+    }
+    preferences.save(key, folder ? "parent" : "kitty");
+}
+
+function preferencesMode(bridge, domain, step, directory) {
     "use strict";
-    const marker = "termattarget-native-check";
-    const own = $.NSUserDefaults.standardUserDefaults;
+    $.NSUserDefaults.standardUserDefaults.registerDefaults($({ terminal: "termattarget-native-check" }));
     const preferences = __TermAtTarget.createPreferences(bridge, domain);
-    if (step === "save") {
+    if (step === "overlap-folder" || step === "overlap-terminal") {
+        overlappingSave(bridge, preferences, step, directory);
+    }
+    if (step === "folder") {
         preferences.save("folder", "parent");
         $.NSUserDefaults.alloc.initWithSuiteName(domain).setIntegerForKey(3, "link");
-        own.setObjectForKey($(marker), "terminal");
     }
-    const loaded = preferences.load();
-    if (step === "load" && ObjC.unwrap(own.stringForKey("terminal")) === marker) {
-        own.removeObjectForKey("terminal");
+    if (step === "terminal") {
+        preferences.save("terminal", "kitty");
     }
-    return loaded;
+    return preferences.load();
 }
 
 /* Each name, as the engine osascript runs presents it; compared by the suite

@@ -16,7 +16,7 @@ function launcher(options, id = "terminal") {
     const fake = fakeTask(options);
     const apps = createTerminalApps(fake.bridge, fake.files);
 
-    return { ...fake, launch: (path) => apps.launch(id, path) };
+    return { ...fake, launch: (path) => apps.launch({ terminal: id, path }) };
 }
 
 function pending(overrides) {
@@ -37,18 +37,11 @@ test("open is given the app's bundle identifier and the directory, never a shell
     assert.deepEqual(ghostty.task.arguments, ["-b", "com.mitchellh.ghostty", path]);
 });
 
-test("the directory is normalised the way every other path is", () => {
-    const { task, launch } = launcher();
+test("the launcher uses the validated spelling it was given", () => {
+    const { launch, task } = launcher({}, "terminal");
 
-    launch("file:///work/a%20b/");
-    assert.deepEqual(task.arguments, ["-b", "com.apple.Terminal", "/work/a b"]);
-});
-
-test("the directory is held to the path rules before anything runs", () => {
-    const { events, launch } = launcher();
-
-    assert.throws(() => launch("relative"), { kind: "pathRelative", params: {} });
-    assert.deepEqual(events, []);
+    launch("/work/%2F");
+    assert.deepEqual(task.arguments, ["-b", "com.apple.Terminal", "/work/%2F"]);
 });
 
 test("a request open accepted is done", () => {

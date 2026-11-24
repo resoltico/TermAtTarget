@@ -133,4 +133,20 @@ function resolveTarget(selected, io) {
     }
 }
 
-module.exports = { physicalPath, resolveTarget, MAX_LINKS };
+/*
+ * Validate the physical directory while preserving the selected spelling for
+ * the handoff and the permission check. Aliases are files on this walk.
+ */
+function validateDirectory(path, files) {
+    const physical = physicalPath(path, files, { links: 0 });
+
+    if (files.inspect(physical).kind !== "directory") {
+        throw refuse("destinationGone", { path });
+    }
+
+    if (!files.canEnter(path)) {
+        throw refuse("destinationNotEnterable", { path });
+    }
+}
+
+module.exports = { physicalPath, resolveTarget, validateDirectory, MAX_LINKS };

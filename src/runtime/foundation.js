@@ -2,7 +2,7 @@
 
 const { isNil, nativeFailure } = require("./bridge.js");
 const { inspect, isPackage } = require("./attributes.js");
-const { resolveAlias, readLink, validateDirectory } = require("./links.js");
+const { resolveAlias, readLink, canEnter } = require("./links.js");
 const { pathOf } = require("./given-path.js");
 
 /*
@@ -20,7 +20,7 @@ function createFoundation(bridge) {
         pathOf: (value) => pathOf(bridge, value),
         // NSHomeDirectory gave the person's own home in Shortcuts, used for "~".
         home: () => String(bridge.objc.unwrap(bridge.ns.NSHomeDirectory())),
-        validateDirectory: (path) => validateDirectory(bridge, path),
+        canEnter: (path) => canEnter(bridge, path),
         isNil,
         nativeFailure: (operation, path, error) => nativeFailure(bridge, operation, path, error)
     };

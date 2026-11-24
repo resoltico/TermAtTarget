@@ -39,7 +39,7 @@ test("the host has every port the core asks through, each with what the core cal
         }
 
         const ports = {
-            files: ["pathOf", "inspect", "isPackage", "home", "resolveAlias", "readLink", "validateDirectory"],
+            files: ["pathOf", "inspect", "isPackage", "home", "resolveAlias", "readLink", "canEnter"],
             preferences: ["load", "save"],
             terminals: ["isInstalled", "launch"],
             settingsScreen: ["pickSetting", "pickValue"]
@@ -83,7 +83,7 @@ test("a launch is timed on the Mac's uptime clock, and a refused launch says so"
     // Uptime is monotonic: no change to the wall clock can move a deadline.
     const seen = inWorld((host) => {
         assert.throws(
-            () => host.terminals.launch("terminal", "/work"),
+            () => host.terminals.launch({ terminal: "terminal", path: "/work" }),
             { kind: "native", params: { operation: "launch", path: "/work", domain: null, code: null, description: null } }
         );
     });

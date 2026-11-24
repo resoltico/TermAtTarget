@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { setTimeout as sleep } from "node:timers/promises";
 import { shellAt } from "./terminal-cwd.mjs";
 
@@ -53,6 +54,24 @@ async function opensAt(invoke, temp, id) {
     await sleep(SHELL_LIFE_MS);
     process.kill(shell, "SIGHUP");
     console.log(`PASS: ${id}'s shell (pid ${shell}) is at the hostile path exactly.`);
+}
+
+export async function checkSelectionCwd(invoke, temp) {
+    const lexical = path.join(temp, "lexical%2F");
+    const outcome = invoke("terminal-selection", pathToFileURL(path.join(lexical, "child.txt")).href);
+
+    if (outcome.kind !== "opened" || outcome.path !== lexical) {
+        throw new Error(`Expected the percent-containing lexical handoff path: ${JSON.stringify(outcome)}.`);
+    }
+
+    const shell = await shellAt(path.join(temp, "physical%20"), 15000);
+    if (shell === null) {
+        throw new Error("Terminal did not reach the percent-containing physical destination.");
+    }
+
+    process.kill(shell, "SIGHUP");
+    console.log("PASS: the percent-containing lexical handoff reaches the correctly traversed shell working directory.");
+    return true;
 }
 
 // Terminal ships with macOS, so it must be among the apps installed.
