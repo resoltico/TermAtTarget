@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [3.0.1] - 2026-11-24
+## [3.0.2] - 2026-11-24
 
 - Rebuild and import the Term At Target QA shortcuts for isolated runs. The harness matches the current refusal before dismissing an alert and holds its staging lease after an unconfirmed run.
 - Settings refuse to save a terminal app that becomes unavailable while its choice is open.

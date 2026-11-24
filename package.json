@@ -1,6 +1,6 @@
 {
   "name": "term-at-target-macos",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "private": true,
   "description": "A dependency-free JXA Shortcuts action that opens a terminal app at a deliberate filesystem location",
   "license": "AGPL-3.0-only",

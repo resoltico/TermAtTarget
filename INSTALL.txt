@@ -1,4 +1,4 @@
-TERM AT TARGET 3.0.1 — SHORTCUTS INSTALLATION
+TERM AT TARGET 3.0.2 — SHORTCUTS INSTALLATION
 
 Source, releases and build attestation:
 
@@ -93,7 +93,7 @@ https://www.gnu.org/licenses/agpl-3.0.html.
 When distributing the script or a modified version, preserve its license
 notices and make corresponding source available as the license requires.
 Find the matching source in the release's source archive or at
-https://github.com/resoltico/TermAtTarget/tree/v3.0.1.
+https://github.com/resoltico/TermAtTarget/tree/v3.0.2.
 The bundled Unicode data retains its own license notice. No separate
 commercial license is currently offered through the repository. See
 LICENSE-COMMERCIAL.md in the source repository.
